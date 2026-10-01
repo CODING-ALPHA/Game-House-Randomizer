@@ -68,7 +68,7 @@ const config: Config = {
           800: "#7A5012",
           DEFAULT: "#D4AF37",
         },
-        // Daughters of the King Tribes
+        // The Sisters Olympics Tribes
         jael: {
           DEFAULT: "#DC2626", // Red
           light: "#EF4444",
