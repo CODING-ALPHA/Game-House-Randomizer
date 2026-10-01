@@ -24,6 +24,7 @@ import {
   Trash2,
   Eye,
   EyeOff,
+  Menu,
   X,
   Filter,
   LogOut,
@@ -72,6 +73,7 @@ export default function OfficialsDashboard() {
   const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -443,95 +445,252 @@ export default function OfficialsDashboard() {
 
   // MAIN DASHBOARD
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-gray-900 flex flex-col">
-      {/* Top Royal Navbar */}
-      <header className="sticky top-0 z-30 bg-[#2E1065] text-white shadow-xl border-b-2 border-[#D4AF37]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-20">
-            {/* Title & Brand */}
+    <div className="min-h-screen bg-[#F8FAFC] text-gray-900 flex">
+      {/* Mobile Sidebar Overlay Backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Persistent Left Sidebar */}
+      <aside
+        className={`fixed top-0 bottom-0 left-0 z-50 w-72 bg-[#2E1065] text-white flex flex-col justify-between border-r-2 border-[#D4AF37] shadow-2xl transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div>
+          {/* Sidebar Header Brand */}
+          <div className="p-5 border-b border-purple-900/60 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-[#581C87] border border-[#D4AF37] flex items-center justify-center shadow-md">
                 <Crown className="w-5 h-5 text-[#F5D061]" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-base sm:text-xl font-black tracking-tight text-white">
-                    Cross Fit: The Sisters Olympics
-                  </h1>
-                  <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#D4AF37]/20 text-[#F5D061] border border-[#D4AF37]/40">
-                    Lead Officials
-                  </span>
-                </div>
-                <p className="text-xs text-purple-200">
-                  Event Roster & Tribe Allocations
+                <h2 className="text-sm font-black text-white leading-tight">
+                  Cross Fit
+                </h2>
+                <p className="text-xs text-[#F5D061] font-semibold">
+                  The Sisters Olympics
                 </p>
+                <span className="text-[10px] text-purple-300 uppercase tracking-widest font-bold">
+                  Officials Portal
+                </span>
               </div>
             </div>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-1.5 rounded-lg text-purple-300 hover:text-white hover:bg-white/10"
+              title="Close sidebar"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
-            {/* Quick Actions */}
-            <div className="flex items-center gap-2 sm:gap-3">
-              <button
-                onClick={() => fetchDashboardData()}
-                disabled={loadingData}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-purple-100 text-xs sm:text-sm font-semibold transition-all border border-white/15"
-                title="Refresh latest registrations"
-              >
-                <RefreshCw
-                  className={`w-4 h-4 ${loadingData ? "animate-spin" : ""}`}
-                />
-                <span className="hidden md:inline">Sync Data</span>
-              </button>
+          {/* Navigation Links */}
+          <div className="p-4 space-y-1.5">
+            <div className="text-[10px] font-bold text-purple-300 uppercase tracking-wider px-3 mb-1">
+              Dashboard View
+            </div>
 
-              <button
-                onClick={handleExportCSV}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#D4AF37] hover:bg-[#F5D061] text-[#2E1065] text-xs sm:text-sm font-extrabold transition-all shadow-md"
+            <button
+              onClick={() => {
+                setActiveTab("overview");
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
+                activeTab === "overview"
+                  ? "bg-[#D4AF37] text-[#2E1065] shadow-md"
+                  : "text-purple-200 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <BarChart3 className="w-4 h-4" />
+                <span>Tribal Metrics</span>
+              </span>
+              <span
+                className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                  activeTab === "overview"
+                    ? "bg-[#2E1065] text-[#F5D061]"
+                    : "bg-purple-900/60 text-purple-200"
+                }`}
               >
-                <Download className="w-4 h-4" />
-                <span>Export CSV</span>
-              </button>
+                5 Tribes
+              </span>
+            </button>
 
-              <button
-                onClick={handleLogout}
-                className="p-2 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-200 text-xs font-semibold transition-all border border-red-500/30"
-                title="Sign out"
+            <button
+              onClick={() => {
+                setActiveTab("students");
+                setSidebarOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
+                activeTab === "students"
+                  ? "bg-[#D4AF37] text-[#2E1065] shadow-md"
+                  : "text-purple-200 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              <span className="flex items-center gap-2.5">
+                <Users className="w-4 h-4" />
+                <span>Member Roster</span>
+              </span>
+              <span
+                className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                  activeTab === "students"
+                    ? "bg-[#2E1065] text-[#F5D061]"
+                    : "bg-purple-900/60 text-purple-200"
+                }`}
               >
-                <LogOut className="w-4 h-4" />
+                {students.length}
+              </span>
+            </button>
+          </div>
+
+          {/* Quick Tribe Filters Section in Sidebar */}
+          <div className="px-4 py-2 border-t border-purple-900/60">
+            <div className="text-[10px] font-bold text-purple-300 uppercase tracking-wider px-3 mb-2">
+              Filter By Tribe
+            </div>
+            <div className="space-y-1">
+              <button
+                onClick={() => {
+                  setFilterHouse("all");
+                  setActiveTab("students");
+                  setSidebarOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  filterHouse === "all" && activeTab === "students"
+                    ? "bg-white/20 text-white font-bold"
+                    : "text-purple-200 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <span>All Tribes</span>
+                <span className="text-[10px] text-purple-300 font-mono">
+                  {students.length}
+                </span>
               </button>
+              {PRIMARY_HOUSES.map((key) => {
+                const conf = HOUSE_CONFIG[key];
+                const count = students.filter((s) => s.house === key).length;
+                const isSelected =
+                  filterHouse === key && activeTab === "students";
+                return (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      setFilterHouse(key);
+                      setActiveTab("students");
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      isSelected
+                        ? "bg-white/20 text-white font-bold"
+                        : "text-purple-200 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full"
+                        style={{ backgroundColor: conf.hex }}
+                      />
+                      <span>{conf.name}</span>
+                    </span>
+                    <span className="text-[10px] text-purple-300 font-mono">
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
 
-        {/* Tab Subheader */}
-        <div className="bg-[#1E1B4B] border-t border-purple-900/60 px-4 sm:px-8">
-          <div className="max-w-7xl mx-auto flex items-center gap-6">
+        {/* Sidebar Footer Controls */}
+        <div className="p-4 border-t border-purple-900/60 space-y-2">
+          <button
+            onClick={() => fetchDashboardData()}
+            disabled={loadingData}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-purple-100 text-xs font-semibold transition-all border border-white/10"
+          >
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${loadingData ? "animate-spin" : ""}`}
+            />
+            <span>Sync Live Data</span>
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#F5D061] text-[#2E1065] text-xs font-bold transition-all shadow-md"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Download CSV Roster</span>
+          </button>
+
+          <div className="pt-2 flex items-center justify-between text-xs text-purple-300 border-t border-purple-900/40">
             <button
-              onClick={() => setActiveTab("overview")}
-              className={`py-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
-                activeTab === "overview"
-                  ? "border-[#D4AF37] text-[#F5D061]"
-                  : "border-transparent text-purple-300 hover:text-white"
-              }`}
+              onClick={() => router.push("/")}
+              className="hover:text-white flex items-center gap-1 font-medium"
             >
-              <BarChart3 className="w-4 h-4" />
-              <span>Tribal Balance & Metrics</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Public Site</span>
             </button>
             <button
-              onClick={() => setActiveTab("students")}
-              className={`py-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
-                activeTab === "students"
-                  ? "border-[#D4AF37] text-[#F5D061]"
-                  : "border-transparent text-purple-300 hover:text-white"
-              }`}
+              onClick={handleLogout}
+              className="text-red-300 hover:text-red-200 flex items-center gap-1 font-bold"
+              title="Sign out"
             >
-              <Users className="w-4 h-4" />
-              <span>Registered Sisters ({students.length})</span>
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Logout</span>
             </button>
           </div>
         </div>
-      </header>
+      </aside>
 
-      {/* Main Body */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+      {/* Main Content Area (Offset by sidebar on desktop) */}
+      <div className="flex-1 lg:pl-72 flex flex-col min-h-screen">
+        {/* Mobile Top App Bar with Menu Button */}
+        <header className="sticky top-0 z-30 bg-[#2E1065] text-white px-4 py-3 border-b-2 border-[#D4AF37] flex items-center justify-between lg:hidden shadow-md">
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 active:scale-95 transition-all"
+              title="Open navigation menu"
+              aria-label="Open menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2">
+              <Crown className="w-4 h-4 text-[#F5D061]" />
+              <span className="font-black text-sm tracking-tight truncate max-w-[200px]">
+                Cross Fit
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => fetchDashboardData()}
+              disabled={loadingData}
+              className="p-1.5 rounded-lg bg-white/10 text-purple-100 hover:bg-white/20"
+              title="Sync Data"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${loadingData ? "animate-spin" : ""}`}
+              />
+            </button>
+            <button
+              onClick={handleExportCSV}
+              className="p-1.5 rounded-lg bg-[#D4AF37] text-[#2E1065] font-bold"
+              title="Export CSV"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          </div>
+        </header>
+
+        {/* Content Body */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
         {/* Error notification banner if any */}
         {error && (
           <div className="bg-red-50 border-2 border-red-300 text-red-800 p-4 rounded-2xl flex items-center justify-between shadow-sm">
@@ -1283,6 +1442,7 @@ export default function OfficialsDashboard() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
