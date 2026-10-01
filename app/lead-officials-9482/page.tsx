@@ -5,18 +5,6 @@ import { useRouter } from "next/navigation";
 import { HOUSE_CONFIG, HouseType, PRIMARY_HOUSES } from "@/config/houses";
 import {
   Crown,
-  Sparkles,
-  User,
-  GraduationCap,
-  Landmark,
-  Hash,
-  Mail,
-  Phone,
-  Trophy,
-  HeartPulse,
-  Lightbulb,
-  Calendar,
-  MapPin,
   Lock,
   Search,
   Download,
@@ -24,18 +12,19 @@ import {
   Trash2,
   Eye,
   EyeOff,
-  Menu,
   X,
-  Filter,
   LogOut,
-  CheckCircle2,
-  ChevronRight,
   BarChart3,
   Users,
   ExternalLink,
   ShieldCheck,
   Copy,
   Check,
+  Phone,
+  Mail,
+  HeartPulse,
+  Lightbulb,
+  Trophy,
 } from "lucide-react";
 import { TribeLucideIcon } from "@/components/RoyalIcons";
 
@@ -59,21 +48,11 @@ interface Stats {
   houses: Record<HouseType, number>;
 }
 
-type SortField =
-  | "name"
-  | "level"
-  | "department"
-  | "matricNumber"
-  | "house"
-  | "createdAt";
-type SortDirection = "asc" | "desc";
-
-export default function OfficialsDashboard() {
+export default function SimpleOfficialsDashboard() {
   const router = useRouter();
   const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,74 +62,80 @@ export default function OfficialsDashboard() {
   const [loadingData, setLoadingData] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Selected student for detailed modal
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [copiedField, setCopiedField] = useState<string | null>(null);
-
-  // Tab & Filters
-  const [activeTab, setActiveTab] = useState<"overview" | "students">(
-    "overview"
-  );
+  // Active tab & filters
+  const [activeTab, setActiveTab] = useState<"overview" | "roster">("roster");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterHouse, setFilterHouse] = useState<HouseType | "all">("all");
   const [filterLevel, setFilterLevel] = useState<string>("all");
-  const [filterDepartment, setFilterDepartment] = useState<string>("all");
+  const [filterCollege, setFilterCollege] = useState<string>("all");
 
-  // Sorting & Pagination
-  const [sortField, setSortField] = useState<SortField>("createdAt");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  // Detailed student modal
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [copiedMatric, setCopiedMatric] = useState(false);
 
-  // Restore session from sessionStorage on load
+  // Restore session
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const savedSecret = sessionStorage.getItem("officials_session_secret");
-      if (savedSecret) {
-        setPassword(savedSecret);
-        verifyAndFetch(savedSecret);
+      const savedKey = sessionStorage.getItem("officials_session_secret");
+      if (savedKey) {
+        setPassword(savedKey);
+        verifyAndFetch(savedKey);
         return;
       }
     }
     setAuthChecking(false);
   }, []);
 
-  const verifyAndFetch = async (secretToVerify: string) => {
+  const verifyAndFetch = async (secret: string) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/admin/verify", {
+      const res = await fetch("/api/admin/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: secretToVerify }),
+        body: JSON.stringify({ password: secret }),
       });
-
-      const data = await response.json();
+      const data = await res.json();
       if (data.success) {
         setAuthenticated(true);
         if (typeof window !== "undefined") {
-          sessionStorage.setItem("officials_session_secret", secretToVerify);
+          sessionStorage.setItem("officials_session_secret", secret);
         }
-        await fetchDashboardData(secretToVerify);
+        await loadData(secret);
       } else {
         setAuthenticated(false);
-        setError("Invalid official authorization key");
+        setError("Invalid access key");
         if (typeof window !== "undefined") {
           sessionStorage.removeItem("officials_session_secret");
         }
       }
     } catch {
-      setError("Unable to authenticate with server");
+      setError("Authentication failed");
     } finally {
       setLoading(false);
       setAuthChecking(false);
     }
   };
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!password.trim()) return;
-    verifyAndFetch(password);
+  const loadData = async (activeKey = password) => {
+    setLoadingData(true);
+    setError(null);
+    try {
+      const [studentsRes, statsRes] = await Promise.all([
+        fetch(`/api/admin/students?password=${encodeURIComponent(activeKey)}`),
+        fetch(`/api/admin/stats?password=${encodeURIComponent(activeKey)}`),
+      ]);
+
+      const sData = await studentsRes.json();
+      const stData = await statsRes.json();
+
+      if (sData.students) setStudents(sData.students);
+      if (stData.stats) setStats(stData.stats);
+    } catch {
+      setError("Failed to synchronize data");
+    } finally {
+      setLoadingData(false);
+    }
   };
 
   const handleLogout = () => {
@@ -163,47 +148,13 @@ export default function OfficialsDashboard() {
     setStats(null);
   };
 
-  const fetchDashboardData = async (activeSecret = password) => {
-    setLoadingData(true);
-    setError(null);
-    try {
-      const [studentsRes, statsRes] = await Promise.all([
-        fetch(
-          `/api/admin/students?password=${encodeURIComponent(activeSecret)}`
-        ),
-        fetch(`/api/admin/stats?password=${encodeURIComponent(activeSecret)}`),
-      ]);
-
-      const studentsData = await studentsRes.json();
-      const statsData = await statsRes.json();
-
-      if (studentsData.error) {
-        setError(studentsData.error);
-        return;
-      }
-
-      if (studentsData.students) setStudents(studentsData.students);
-      if (statsData.stats) setStats(statsData.stats);
-    } catch {
-      setError("Failed to synchronize latest data");
-    } finally {
-      setLoadingData(false);
-    }
-  };
-
   const handleExportCSV = async () => {
     try {
-      const response = await fetch(
+      const res = await fetch(
         `/api/admin/export?password=${encodeURIComponent(password)}`
       );
-
-      if (!response.ok) {
-        const err = await response.json();
-        setError(err.error || "Failed to generate CSV export");
-        return;
-      }
-
-      const blob = await response.blob();
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -217,63 +168,42 @@ export default function OfficialsDashboard() {
     }
   };
 
-  const handleDeleteStudent = async (studentId: string, studentName: string) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to remove "${studentName}" from the roster? This cannot be undone.`
-    );
-    if (!confirmed) return;
-
-    setDeletingId(studentId);
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`Delete ${name} from roster?`)) return;
+    setDeletingId(id);
     try {
-      const response = await fetch(
+      const res = await fetch(
         `/api/admin/students?password=${encodeURIComponent(password)}`,
         {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: studentId }),
+          body: JSON.stringify({ id }),
         }
       );
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to remove student");
-      }
-
-      // Refresh data
-      setStudents((prev) => prev.filter((s) => s._id !== studentId));
-      if (selectedStudent?._id === studentId) {
-        setSelectedStudent(null);
-      }
-      fetchDashboardData();
+      if (!res.ok) throw new Error("Delete failed");
+      setStudents((prev) => prev.filter((s) => s._id !== id));
+      if (selectedStudent?._id === id) setSelectedStudent(null);
+      loadData();
     } catch (err: any) {
-      setError(err?.message || "Failed to delete student record");
+      setError(err?.message || "Failed to remove member");
     } finally {
       setDeletingId(null);
     }
   };
 
-  const copyToClipboard = (text: string, fieldName: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedField(fieldName);
-    setTimeout(() => setCopiedField(null), 2000);
-  };
-
-  // Filtered & Sorted Records
+  // Filtered Students
   const filteredStudents = useMemo(() => {
     let result = [...students];
 
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
+      const q = searchQuery.toLowerCase().trim();
       result = result.filter(
         (s) =>
-          s.name.toLowerCase().includes(query) ||
-          s.department.toLowerCase().includes(query) ||
-          s.level.toLowerCase().includes(query) ||
-          (s.matricNumber && s.matricNumber.toLowerCase().includes(query)) ||
-          (s.email && s.email.toLowerCase().includes(query)) ||
-          (s.phoneNumber && s.phoneNumber.includes(query)) ||
-          (s.medicalConsiderations &&
-            s.medicalConsiderations.toLowerCase().includes(query))
+          s.name.toLowerCase().includes(q) ||
+          s.department.toLowerCase().includes(q) ||
+          s.level.toLowerCase().includes(q) ||
+          (s.matricNumber && s.matricNumber.toLowerCase().includes(q)) ||
+          (s.phoneNumber && s.phoneNumber.includes(q))
       );
     }
 
@@ -285,916 +215,575 @@ export default function OfficialsDashboard() {
       result = result.filter((s) => s.level === filterLevel);
     }
 
-    if (filterDepartment !== "all") {
-      result = result.filter((s) => s.department === filterDepartment);
+    if (filterCollege !== "all") {
+      result = result.filter((s) => s.department === filterCollege);
     }
-
-    result.sort((a, b) => {
-      let aVal: any = a[sortField];
-      let bVal: any = b[sortField];
-
-      if (sortField === "createdAt") {
-        aVal = new Date(aVal).getTime();
-        bVal = new Date(bVal).getTime();
-      } else if (typeof aVal === "string") {
-        aVal = aVal.toLowerCase();
-        bVal = bVal.toLowerCase();
-      }
-
-      if (sortDirection === "asc") {
-        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
-      } else {
-        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
-      }
-    });
 
     return result;
-  }, [
-    students,
-    searchQuery,
-    filterHouse,
-    filterLevel,
-    filterDepartment,
-    sortField,
-    sortDirection,
-  ]);
+  }, [students, searchQuery, filterHouse, filterLevel, filterCollege]);
 
-  // Pagination slice
-  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage) || 1;
-  const paginatedStudents = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredStudents.slice(start, start + itemsPerPage);
-  }, [filteredStudents, currentPage]);
-
-  const uniqueLevels = useMemo(() => {
-    return Array.from(new Set(students.map((s) => s.level))).sort();
-  }, [students]);
-
-  const uniqueColleges = useMemo(() => {
-    return Array.from(new Set(students.map((s) => s.department))).sort();
-  }, [students]);
-
-  const toggleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
-    }
-  };
-
-  // Reset pagination on filter changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, filterHouse, filterLevel, filterDepartment]);
-
-  // LOGIN SCREEN
+  // LOGIN VIEW
   if (!authenticated) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-[#2E1065] via-[#1E1B4B] to-[#0F0A1E] text-white">
-        <div className="max-w-md w-full bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border-2 border-[#D4AF37] text-gray-900 p-8 sm:p-10 relative">
-          <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#D4AF37] via-[#F5D061] to-[#D4AF37]"></div>
-
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-purple-100 border border-purple-200 text-[#581C87] flex items-center justify-center mx-auto mb-4 shadow-md">
-              <ShieldCheck className="w-8 h-8 text-[#D4AF37]" />
+      <main className="min-h-screen w-full flex items-center justify-center p-4 bg-gradient-to-br from-[#2E1065] via-[#1E1B4B] to-[#0F0A1E]">
+        <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 sm:p-8 border-2 border-[#D4AF37]">
+          <div className="text-center mb-6">
+            <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center mx-auto mb-3 text-[#581C87]">
+              <ShieldCheck className="w-6 h-6 text-[#D4AF37]" />
             </div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-purple-100 text-[#581C87] border border-purple-200 mb-2">
-              <Crown className="w-3.5 h-3.5 text-[#D4AF37]" />
+            <p className="text-xs font-bold uppercase tracking-wider text-purple-700">
               Cross Fit: The Sisters Olympics
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#2E1065] tracking-tight">
+            </p>
+            <h1 className="text-xl font-black text-gray-900 mt-0.5">
               Officials Portal
             </h1>
-            <p className="text-gray-500 text-sm mt-1">
-              Authorized committee access only
-            </p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              verifyAndFetch(password);
+            }}
+            className="space-y-4"
+          >
             <div>
               <label
-                htmlFor="adminPassword"
-                className="block text-xs font-bold uppercase tracking-wider text-[#2E1065] mb-2"
+                htmlFor="pwd"
+                className="block text-xs font-bold uppercase text-gray-700 mb-1.5"
               >
                 Access Key
               </label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
-                  id="adminPassword"
+                  id="pwd"
+                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
-                  placeholder="Enter authorized key"
-                  className="w-full pl-4 pr-12 py-3.5 bg-white border-2 border-purple-200 rounded-xl focus:ring-2 focus:ring-[#D4AF37] focus:border-[#7E22CE] outline-none transition-all text-gray-900 placeholder:text-gray-400 font-medium text-base shadow-sm"
+                  placeholder="Enter key"
+                  className="w-full pl-3 pr-10 py-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#D4AF37] focus:border-[#7E22CE] outline-none text-gray-900 font-medium text-sm"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-purple-700 p-1 rounded-lg focus:outline-none transition-colors"
-                  title={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-purple-700"
                 >
                   {showPassword ? (
-                    <EyeOff className="w-5 h-5 text-[#7E22CE]" />
+                    <EyeOff className="w-4 h-4 text-purple-700" />
                   ) : (
-                    <Eye className="w-5 h-5" />
+                    <Eye className="w-4 h-4" />
                   )}
                 </button>
               </div>
             </div>
 
             {error && (
-              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-semibold flex items-center gap-2">
-                <span>{error}</span>
+              <div className="p-2.5 rounded-lg bg-red-50 text-red-700 text-xs font-semibold">
+                {error}
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading || authChecking}
-              className="w-full py-4 px-6 rounded-xl font-bold text-white bg-gradient-to-r from-[#7E22CE] to-[#4C1D95] hover:opacity-95 transition-all shadow-lg hover:shadow-xl border border-[#D4AF37] flex items-center justify-center gap-2 text-base disabled:opacity-50"
+              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#7E22CE] to-[#4C1D95] text-white font-bold text-sm shadow hover:opacity-95 disabled:opacity-50"
             >
-              {loading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Verifying Authorization...</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="w-5 h-5 text-[#F5D061]" />
-                  <span>Enter Dashboard</span>
-                </>
-              )}
+              {loading ? "Verifying..." : "Enter Dashboard"}
             </button>
-          </form>
 
-          <div className="mt-8 text-center border-t border-gray-100 pt-4">
             <button
               type="button"
               onClick={() => router.push("/")}
-              className="text-xs text-gray-500 hover:text-purple-700 font-medium transition-colors"
+              className="w-full text-center text-xs text-gray-500 hover:text-purple-700 pt-2 block"
             >
-              ← Back to Main Registration
+              ← Back to Registration
             </button>
-          </div>
+          </form>
         </div>
       </main>
     );
   }
 
-  // MAIN DASHBOARD
+  // AUTHENTICATED DASHBOARD (100% RESPONSIVE & SIMPLE)
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-gray-900 flex">
-      {/* Mobile Sidebar Overlay Backdrop */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Persistent Left Sidebar */}
-      <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-72 bg-[#2E1065] text-white flex flex-col justify-between border-r-2 border-[#D4AF37] shadow-2xl transition-transform duration-300 ease-in-out lg:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <div>
-          {/* Sidebar Header Brand */}
-          <div className="p-5 border-b border-purple-900/60 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#581C87] border border-[#D4AF37] flex items-center justify-center shadow-md">
-                <Crown className="w-5 h-5 text-[#F5D061]" />
-              </div>
-              <div>
-                <h2 className="text-sm font-black text-white leading-tight">
-                  Cross Fit
-                </h2>
-                <p className="text-xs text-[#F5D061] font-semibold">
-                  The Sisters Olympics
-                </p>
-                <span className="text-[10px] text-purple-300 uppercase tracking-widest font-bold">
-                  Officials Portal
-                </span>
-              </div>
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#F8FAFC] text-gray-900 flex flex-col">
+      {/* Top Header Bar */}
+      <header className="w-full bg-[#2E1065] text-white border-b-2 border-[#D4AF37] shadow-md sticky top-0 z-30">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
+          {/* Logo / Title */}
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-[#581C87] border border-[#D4AF37] flex items-center justify-center">
+              <Crown className="w-4 h-4 text-[#F5D061]" />
             </div>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1.5 rounded-lg text-purple-300 hover:text-white hover:bg-white/10"
-              title="Close sidebar"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div>
+              <h1 className="font-black text-sm sm:text-base leading-tight text-white">
+                Cross Fit
+              </h1>
+              <p className="text-[10px] text-[#F5D061] font-semibold leading-none hidden sm:block">
+                The Sisters Olympics • Officials
+              </p>
+            </div>
           </div>
 
-          {/* Navigation Links */}
-          <div className="p-4 space-y-1.5">
-            <div className="text-[10px] font-bold text-purple-300 uppercase tracking-wider px-3 mb-1">
-              Dashboard View
-            </div>
+          {/* Quick Header Actions */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <button
+              onClick={() => loadData()}
+              disabled={loadingData}
+              className="p-2 sm:px-3 sm:py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-purple-100 text-xs font-semibold flex items-center gap-1"
+              title="Sync Data"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${loadingData ? "animate-spin" : ""}`}
+              />
+              <span className="hidden sm:inline">Sync</span>
+            </button>
 
             <button
-              onClick={() => {
-                setActiveTab("overview");
-                setSidebarOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
+              onClick={handleExportCSV}
+              className="px-2.5 py-1.5 rounded-lg bg-[#D4AF37] hover:bg-[#F5D061] text-[#2E1065] text-xs font-extrabold flex items-center gap-1 shadow-sm"
+              title="Download CSV"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Export CSV</span>
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-200 text-xs border border-red-500/20"
+              title="Logout"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Simple Tab Switcher */}
+        <div className="w-full bg-[#1E1B4B] border-t border-purple-900/50">
+          <div className="max-w-6xl mx-auto px-3 sm:px-6 flex gap-6">
+            <button
+              onClick={() => setActiveTab("roster")}
+              className={`py-2.5 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
+                activeTab === "roster"
+                  ? "border-[#D4AF37] text-[#F5D061]"
+                  : "border-transparent text-purple-300 hover:text-white"
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Roster ({students.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("overview")}
+              className={`py-2.5 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
                 activeTab === "overview"
-                  ? "bg-[#D4AF37] text-[#2E1065] shadow-md"
-                  : "text-purple-200 hover:bg-white/10 hover:text-white"
+                  ? "border-[#D4AF37] text-[#F5D061]"
+                  : "border-transparent text-purple-300 hover:text-white"
               }`}
             >
-              <span className="flex items-center gap-2.5">
-                <BarChart3 className="w-4 h-4" />
-                <span>Tribal Metrics</span>
-              </span>
-              <span
-                className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                  activeTab === "overview"
-                    ? "bg-[#2E1065] text-[#F5D061]"
-                    : "bg-purple-900/60 text-purple-200"
-                }`}
-              >
-                5 Tribes
-              </span>
-            </button>
-
-            <button
-              onClick={() => {
-                setActiveTab("students");
-                setSidebarOpen(false);
-              }}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all ${
-                activeTab === "students"
-                  ? "bg-[#D4AF37] text-[#2E1065] shadow-md"
-                  : "text-purple-200 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              <span className="flex items-center gap-2.5">
-                <Users className="w-4 h-4" />
-                <span>Member Roster</span>
-              </span>
-              <span
-                className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                  activeTab === "students"
-                    ? "bg-[#2E1065] text-[#F5D061]"
-                    : "bg-purple-900/60 text-purple-200"
-                }`}
-              >
-                {students.length}
-              </span>
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Tribe Metrics</span>
             </button>
           </div>
+        </div>
+      </header>
 
-          {/* Quick Tribe Filters Section in Sidebar */}
-          <div className="px-4 py-2 border-t border-purple-900/60">
-            <div className="text-[10px] font-bold text-purple-300 uppercase tracking-wider px-3 mb-2">
-              Filter By Tribe
-            </div>
-            <div className="space-y-1">
-              <button
-                onClick={() => {
-                  setFilterHouse("all");
-                  setActiveTab("students");
-                  setSidebarOpen(false);
-                }}
-                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  filterHouse === "all" && activeTab === "students"
-                    ? "bg-white/20 text-white font-bold"
-                    : "text-purple-200 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                <span>All Tribes</span>
-                <span className="text-[10px] text-purple-300 font-mono">
-                  {students.length}
+      {/* Main Content (Full Width & Contained) */}
+      <main className="flex-1 w-full max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4">
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs font-semibold flex items-center justify-between">
+            <span>{error}</span>
+            <button onClick={() => setError(null)}>
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* ==================== TAB 1: OVERVIEW METRICS ==================== */}
+        {activeTab === "overview" && (
+          <div className="space-y-4">
+            {/* Total registrations banner */}
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-purple-200 shadow-sm flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Total Registrations
                 </span>
-              </button>
+                <p className="text-3xl font-black text-[#2E1065]">
+                  {stats?.total ?? students.length}
+                </p>
+                <p className="text-xs text-purple-700 font-medium">
+                  5 Royal Tribes
+                </p>
+              </div>
+              <div className="w-12 h-12 rounded-xl bg-purple-100 text-[#581C87] flex items-center justify-center">
+                <Trophy className="w-6 h-6 text-[#D4AF37]" />
+              </div>
+            </div>
+
+            {/* 5 Tribe Breakdown Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               {PRIMARY_HOUSES.map((key) => {
                 const conf = HOUSE_CONFIG[key];
-                const count = students.filter((s) => s.house === key).length;
-                const isSelected =
-                  filterHouse === key && activeTab === "students";
+                const count =
+                  stats?.houses[key as HouseType] ??
+                  students.filter((s) => s.house === key).length;
+                const total = stats?.total || students.length || 1;
+                const pct = Math.round((count / total) * 100);
+
                 return (
                   <button
                     key={key}
                     onClick={() => {
                       setFilterHouse(key);
-                      setActiveTab("students");
-                      setSidebarOpen(false);
+                      setActiveTab("roster");
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                      isSelected
-                        ? "bg-white/20 text-white font-bold"
-                        : "text-purple-200 hover:bg-white/10 hover:text-white"
-                    }`}
+                    className="bg-white rounded-2xl p-4 border text-left hover:shadow-md transition-all flex flex-col justify-between"
+                    style={{ borderColor: `${conf.hex}40` }}
                   >
-                    <span className="flex items-center gap-2">
+                    <div className="flex items-center justify-between mb-2">
                       <span
-                        className="w-2.5 h-2.5 rounded-full"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-white"
                         style={{ backgroundColor: conf.hex }}
+                      >
+                        <TribeLucideIcon tribe={key} className="w-4 h-4" />
+                      </span>
+                      <span
+                        className="text-[10px] font-black px-2 py-0.5 rounded-full"
+                        style={{
+                          backgroundColor: `${conf.hex}15`,
+                          color: conf.hex,
+                        }}
+                      >
+                        {pct}%
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="block text-xs font-bold text-gray-600">
+                        {conf.name}
+                      </span>
+                      <span className="text-2xl font-black text-gray-900">
+                        {count}
+                      </span>
+                    </div>
+
+                    <div className="w-full bg-gray-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor: conf.hex,
+                        }}
                       />
-                      <span>{conf.name}</span>
-                    </span>
-                    <span className="text-[10px] text-purple-300 font-mono">
-                      {count}
-                    </span>
+                    </div>
                   </button>
                 );
               })}
             </div>
           </div>
-        </div>
-
-        {/* Sidebar Footer Controls */}
-        <div className="p-4 border-t border-purple-900/60 space-y-2">
-          <button
-            onClick={() => fetchDashboardData()}
-            disabled={loadingData}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-purple-100 text-xs font-semibold transition-all border border-white/10"
-          >
-            <RefreshCw
-              className={`w-3.5 h-3.5 ${loadingData ? "animate-spin" : ""}`}
-            />
-            <span>Sync Live Data</span>
-          </button>
-
-          <button
-            onClick={handleExportCSV}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#F5D061] text-[#2E1065] text-xs font-bold transition-all shadow-md"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Download CSV Roster</span>
-          </button>
-
-          <div className="pt-2 flex items-center justify-between text-xs text-purple-300 border-t border-purple-900/40">
-            <button
-              onClick={() => router.push("/")}
-              className="hover:text-white flex items-center gap-1 font-medium"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              <span>Public Site</span>
-            </button>
-            <button
-              onClick={handleLogout}
-              className="text-red-300 hover:text-red-200 flex items-center gap-1 font-bold"
-              title="Sign out"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Logout</span>
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content Area (Offset by sidebar on desktop) */}
-      <div className="flex-1 lg:pl-72 flex flex-col min-h-screen">
-        {/* Mobile Top App Bar with Menu Button */}
-        <header className="sticky top-0 z-30 bg-[#2E1065] text-white px-4 py-3 border-b-2 border-[#D4AF37] flex items-center justify-between lg:hidden shadow-md">
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 active:scale-95 transition-all"
-              title="Open navigation menu"
-              aria-label="Open menu"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            <div className="flex items-center gap-2">
-              <Crown className="w-4 h-4 text-[#F5D061]" />
-              <span className="font-black text-sm tracking-tight truncate max-w-[200px]">
-                Cross Fit
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => fetchDashboardData()}
-              disabled={loadingData}
-              className="p-1.5 rounded-lg bg-white/10 text-purple-100 hover:bg-white/20"
-              title="Sync Data"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${loadingData ? "animate-spin" : ""}`}
-              />
-            </button>
-            <button
-              onClick={handleExportCSV}
-              className="p-1.5 rounded-lg bg-[#D4AF37] text-[#2E1065] font-bold"
-              title="Export CSV"
-            >
-              <Download className="w-4 h-4" />
-            </button>
-          </div>
-        </header>
-
-        {/* Content Body */}
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-        {/* Error notification banner if any */}
-        {error && (
-          <div className="bg-red-50 border-2 border-red-300 text-red-800 p-4 rounded-2xl flex items-center justify-between shadow-sm">
-            <div className="flex items-center gap-2 font-semibold text-sm">
-              <span>{error}</span>
-            </div>
-            <button
-              onClick={() => setError(null)}
-              className="text-red-500 hover:text-red-700"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
         )}
 
-        {/* ===================== TAB 1: OVERVIEW ===================== */}
-        {activeTab === "overview" && (
-          <div className="space-y-6">
-            {/* Top Stat Summary Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-              {/* Total Card */}
-              <div className="bg-white rounded-2xl p-5 shadow-sm border-2 border-purple-200 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Total Registrations
-                  </p>
-                  <p className="text-3xl sm:text-4xl font-black text-[#2E1065] mt-1">
-                    {stats?.total ?? students.length}
-                  </p>
-                  <p className="text-xs text-purple-700 font-semibold mt-1">
-                    Across 5 Royal Tribes
-                  </p>
-                </div>
-                <div className="w-14 h-14 rounded-2xl bg-purple-100 text-[#581C87] flex items-center justify-center border border-purple-200 shadow-sm">
-                  <Users className="w-7 h-7" />
-                </div>
+        {/* ==================== TAB 2: ROSTER ==================== */}
+        {activeTab === "roster" && (
+          <div className="space-y-3">
+            {/* Simple Compact Filter Bar */}
+            <div className="bg-white rounded-2xl p-3 sm:p-4 border border-purple-200 shadow-sm space-y-2.5">
+              {/* Search input */}
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search name, matric, or phone..."
+                  className="w-full pl-8 pr-8 py-2 bg-slate-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#7E22CE] outline-none text-xs sm:text-sm font-medium text-gray-900 placeholder:text-gray-400"
+                />
+                <Search className="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="text-gray-400 hover:text-gray-600 absolute right-2.5 top-1/2 -translate-y-1/2"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
 
-              {/* Event Date Card */}
-              <div className="bg-white rounded-2xl p-5 shadow-sm border-2 border-purple-100 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    Event Date
-                  </p>
-                  <p className="text-base sm:text-lg font-bold text-gray-900 mt-1">
-                    Sat, 17th Oct, 2026
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">Main School Field</p>
-                </div>
-                <div className="w-12 h-12 rounded-xl bg-amber-50 text-[#B8860B] flex items-center justify-center border border-amber-200">
-                  <Calendar className="w-6 h-6" />
-                </div>
-              </div>
-
-              {/* Level Breakdown Quick Pill */}
-              <div className="bg-white rounded-2xl p-5 shadow-sm border-2 border-purple-100 sm:col-span-2 flex flex-col justify-between">
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                  Academic Level Distribution
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  {["100", "200", "300", "400", "500"].map((lvl) => {
-                    const count = students.filter(
-                      (s) => s.level === lvl
-                    ).length;
-                    return (
-                      <div
-                        key={lvl}
-                        className="flex-1 min-w-[70px] bg-slate-50 border border-slate-200 rounded-xl p-2 text-center"
-                      >
-                        <span className="block text-xs font-semibold text-gray-500">
-                          {lvl}L
-                        </span>
-                        <span className="block text-lg font-bold text-[#2E1065]">
-                          {count}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Live Tribe Balance & Allocation Cards */}
-            <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border-2 border-purple-100">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 mb-6 border-b border-gray-100 gap-2">
-                <div>
-                  <h3 className="text-lg sm:text-xl font-extrabold text-[#2E1065] flex items-center gap-2">
-                    <Trophy className="w-5 h-5 text-[#D4AF37]" />
-                    <span>Live Tribe Balance & Member Roster</span>
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    The randomizer automatically balances participant counts
-                    across each of the five tribes.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setActiveTab("students")}
-                  className="text-xs font-bold text-[#7E22CE] hover:text-[#581C87] flex items-center gap-1 self-start sm:self-auto"
+              {/* Filter Pills in a scrollable flex row */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+                {/* Tribe dropdown pill */}
+                <select
+                  value={filterHouse}
+                  onChange={(e) =>
+                    setFilterHouse(e.target.value as HouseType | "all")
+                  }
+                  className="px-2.5 py-1.5 bg-slate-50 border border-gray-200 rounded-lg text-gray-800 font-semibold focus:outline-none"
                 >
-                  <span>View Member Details</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
+                  <option value="all">All Tribes</option>
+                  {PRIMARY_HOUSES.map((h) => (
+                    <option key={h} value={h}>
+                      {HOUSE_CONFIG[h].name}
+                    </option>
+                  ))}
+                </select>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                {PRIMARY_HOUSES.map((key) => {
-                  const config = HOUSE_CONFIG[key];
-                  const count =
-                    stats?.houses[key as HouseType] ??
-                    students.filter((s) => s.house === key).length;
-                  const total = stats?.total || students.length || 1;
-                  const percentage = Math.round((count / total) * 100);
+                {/* Level pill */}
+                <select
+                  value={filterLevel}
+                  onChange={(e) => setFilterLevel(e.target.value)}
+                  className="px-2.5 py-1.5 bg-slate-50 border border-gray-200 rounded-lg text-gray-800 font-semibold focus:outline-none"
+                >
+                  <option value="all">All Levels</option>
+                  {["100", "200", "300", "400", "500"].map((lvl) => (
+                    <option key={lvl} value={lvl}>
+                      {lvl}L
+                    </option>
+                  ))}
+                </select>
 
-                  return (
-                    <div
-                      key={key}
-                      className="rounded-2xl p-4 sm:p-5 border-2 transition-all hover:shadow-md flex flex-col justify-between"
-                      style={{
-                        borderColor: `${config.hex}40`,
-                        backgroundColor: `${config.hex}08`,
-                      }}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center border shadow-sm"
-                          style={{
-                            backgroundColor: `${config.hex}20`,
-                            borderColor: config.hex,
-                            color: config.hex,
-                          }}
-                        >
-                          <TribeLucideIcon tribe={key} className="w-5 h-5" />
-                        </div>
-                        <span
-                          className="text-xs font-bold px-2 py-0.5 rounded-full uppercase"
-                          style={{
-                            backgroundColor: `${config.hex}20`,
-                            color: config.hex,
-                          }}
-                        >
-                          {config.colorName}
-                        </span>
-                      </div>
+                {/* College pill */}
+                <select
+                  value={filterCollege}
+                  onChange={(e) => setFilterCollege(e.target.value)}
+                  className="px-2.5 py-1.5 bg-slate-50 border border-gray-200 rounded-lg text-gray-800 font-semibold focus:outline-none"
+                >
+                  <option value="all">All Colleges</option>
+                  {[
+                    "COAES",
+                    "COMSS",
+                    "COCS",
+                    "COHES",
+                    "COLAW",
+                    "COEVS",
+                    "COLBS",
+                  ].map((col) => (
+                    <option key={col} value={col}>
+                      {col}
+                    </option>
+                  ))}
+                </select>
 
-                      <div>
-                        <h4 className="font-extrabold text-base text-gray-900">
-                          {config.name}
-                        </h4>
-                        <div className="flex items-baseline gap-2 mt-1">
-                          <span className="text-2xl sm:text-3xl font-black text-gray-900">
-                            {count}
-                          </span>
-                          <span className="text-xs font-semibold text-gray-500">
-                            ({percentage}%)
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Progress bar */}
-                      <div className="w-full bg-gray-200 h-2 rounded-full mt-3 overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{
-                            width: `${percentage}%`,
-                            backgroundColor: config.hex,
-                          }}
-                        />
-                      </div>
-
-                      <button
-                        onClick={() => {
-                          setFilterHouse(key);
-                          setActiveTab("students");
-                        }}
-                        className="mt-4 text-xs font-bold text-gray-600 hover:text-gray-900 text-left flex items-center gap-1 transition-colors"
-                      >
-                        <span>Filter roster</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Colleges Distribution Breakdown */}
-            <div className="bg-white rounded-3xl p-6 shadow-sm border-2 border-purple-100">
-              <h3 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <Landmark className="w-4 h-4 text-[#7E22CE]" />
-                <span>Colleges Representation</span>
-              </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-                {[
-                  "COAES",
-                  "COMSS",
-                  "COCS",
-                  "COHES",
-                  "COLAW",
-                  "COEVS",
-                  "COLBS",
-                ].map((col) => {
-                  const count = students.filter(
-                    (s) => s.department === col
-                  ).length;
-                  return (
-                    <button
-                      key={col}
-                      onClick={() => {
-                        setFilterDepartment(col);
-                        setActiveTab("students");
-                      }}
-                      className="p-3 rounded-xl bg-purple-50/60 border border-purple-200 text-left hover:border-purple-400 transition-all"
-                    >
-                      <span className="block text-xs font-bold text-[#581C87]">
-                        {col}
-                      </span>
-                      <span className="block text-xl font-black text-gray-900 mt-1">
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ===================== TAB 2: STUDENTS DIRECTORY ===================== */}
-        {activeTab === "students" && (
-          <div className="space-y-4">
-            {/* Filter Bar */}
-            <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border-2 border-purple-100 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* Search Input */}
-                <div className="relative sm:col-span-2 lg:col-span-1">
-                  <label
-                    htmlFor="searchField"
-                    className="block text-xs font-bold text-gray-700 uppercase mb-1"
-                  >
-                    Quick Search
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      id="searchField"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search name, matric, phone..."
-                      className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#7E22CE] focus:border-[#7E22CE] outline-none text-sm text-gray-900 placeholder:text-gray-400 font-medium"
-                    />
-                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    {searchQuery && (
-                      <button
-                        onClick={() => setSearchQuery("")}
-                        className="text-xs text-gray-400 hover:text-gray-600 absolute right-3 top-1/2 -translate-y-1/2"
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Filter Tribe */}
-                <div>
-                  <label
-                    htmlFor="filterTribeSelect"
-                    className="block text-xs font-bold text-gray-700 uppercase mb-1"
-                  >
-                    Tribe
-                  </label>
-                  <select
-                    id="filterTribeSelect"
-                    value={filterHouse}
-                    onChange={(e) =>
-                      setFilterHouse(e.target.value as HouseType | "all")
-                    }
-                    className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#7E22CE] outline-none text-sm text-gray-900 font-medium cursor-pointer"
-                  >
-                    <option value="all">All Tribes</option>
-                    {PRIMARY_HOUSES.map((key) => (
-                      <option key={key} value={key}>
-                        {HOUSE_CONFIG[key].name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Filter Level */}
-                <div>
-                  <label
-                    htmlFor="filterLevelSelect"
-                    className="block text-xs font-bold text-gray-700 uppercase mb-1"
-                  >
-                    Level
-                  </label>
-                  <select
-                    id="filterLevelSelect"
-                    value={filterLevel}
-                    onChange={(e) => setFilterLevel(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#7E22CE] outline-none text-sm text-gray-900 font-medium cursor-pointer"
-                  >
-                    <option value="all">All Levels</option>
-                    {uniqueLevels.map((lvl) => (
-                      <option key={lvl} value={lvl}>
-                        Level {lvl}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Filter College */}
-                <div>
-                  <label
-                    htmlFor="filterCollegeSelect"
-                    className="block text-xs font-bold text-gray-700 uppercase mb-1"
-                  >
-                    College
-                  </label>
-                  <select
-                    id="filterCollegeSelect"
-                    value={filterDepartment}
-                    onChange={(e) => setFilterDepartment(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#7E22CE] outline-none text-sm text-gray-900 font-medium cursor-pointer"
-                  >
-                    <option value="all">All Colleges</option>
-                    {uniqueColleges.map((col) => (
-                      <option key={col} value={col}>
-                        {col}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Filter tags & Reset */}
-              {(filterHouse !== "all" ||
-                filterLevel !== "all" ||
-                filterDepartment !== "all" ||
-                searchQuery !== "") && (
-                <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs">
-                  <span className="text-gray-500 font-medium">
-                    Showing <strong>{filteredStudents.length}</strong> of{" "}
-                    {students.length} sisters
-                  </span>
+                {(filterHouse !== "all" ||
+                  filterLevel !== "all" ||
+                  filterCollege !== "all" ||
+                  searchQuery) && (
                   <button
                     onClick={() => {
-                      setSearchQuery("");
                       setFilterHouse("all");
                       setFilterLevel("all");
-                      setFilterDepartment("all");
+                      setFilterCollege("all");
+                      setSearchQuery("");
                     }}
-                    className="text-[#7E22CE] hover:underline font-bold"
+                    className="text-purple-700 font-bold hover:underline whitespace-nowrap text-[11px]"
                   >
-                    Reset all filters
+                    Reset
                   </button>
+                )}
+
+                <span className="ml-auto text-[11px] text-gray-400 font-medium whitespace-nowrap">
+                  {filteredStudents.length} members
+                </span>
+              </div>
+            </div>
+
+            {/* Mobile Card List View (Strictly Responsive on Phones: block md:hidden) */}
+            <div className="block md:hidden space-y-2.5">
+              {filteredStudents.length === 0 ? (
+                <div className="p-8 text-center text-xs text-gray-400 bg-white rounded-2xl border">
+                  No matching members found.
                 </div>
+              ) : (
+                filteredStudents.map((student) => {
+                  const conf =
+                    HOUSE_CONFIG[student.house] || HOUSE_CONFIG.esther;
+                  return (
+                    <div
+                      key={student._id}
+                      className="bg-white rounded-2xl p-4 border shadow-xs space-y-3"
+                      style={{ borderLeft: `5px solid ${conf.hex}` }}
+                    >
+                      {/* Name & Tribe */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <button
+                            onClick={() => setSelectedStudent(student)}
+                            className="font-bold text-sm text-gray-900 text-left hover:text-purple-700"
+                          >
+                            {student.name}
+                          </button>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                              {student.department}
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-900 border border-purple-200">
+                              {student.level}L
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Tribe pill */}
+                        <span
+                          className="px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 flex-shrink-0"
+                          style={{
+                            backgroundColor: `${conf.hex}15`,
+                            color: conf.hex,
+                          }}
+                        >
+                          <TribeLucideIcon
+                            tribe={student.house}
+                            className="w-3 h-3"
+                          />
+                          <span>{conf.name}</span>
+                        </span>
+                      </div>
+
+                      {/* Matric & Phone */}
+                      <div className="flex items-center justify-between text-xs text-gray-600 pt-1 border-t border-gray-100">
+                        <span className="font-mono text-[11px]">
+                          {student.matricNumber || "No matric"}
+                        </span>
+                        {student.phoneNumber && (
+                          <a
+                            href={`https://wa.me/${student.phoneNumber.replace(/\D/g, "")}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold text-green-700 flex items-center gap-1"
+                          >
+                            <Phone className="w-3 h-3" />
+                            <span>{student.phoneNumber}</span>
+                          </a>
+                        )}
+                      </div>
+
+                      {/* Card actions */}
+                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-gray-100">
+                        <button
+                          onClick={() => setSelectedStudent(student)}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 text-gray-700 text-xs font-semibold flex items-center gap-1"
+                        >
+                          <Eye className="w-3 h-3" />
+                          <span>View Details</span>
+                        </button>
+                        <button
+                          onClick={() =>
+                            handleDelete(student._id, student.name)
+                          }
+                          disabled={deletingId === student._id}
+                          className="p-1 rounded-lg text-red-500 hover:bg-red-50"
+                          title="Delete member"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
 
-            {/* Students Table */}
-            <div className="bg-white rounded-3xl shadow-sm border-2 border-purple-100 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+            {/* Desktop Table View (Hidden on Phones, Shown on Tablets/Desktops: hidden md:block) */}
+            <div className="hidden md:block bg-white rounded-2xl border border-purple-200 shadow-xs overflow-hidden">
+              <div className="w-full overflow-x-auto">
+                <table className="w-full text-left text-xs sm:text-sm">
                   <thead>
-                    <tr className="bg-purple-50/70 border-b border-purple-200 text-xs font-bold text-[#2E1065] uppercase tracking-wider">
-                      <th
-                        className="py-3.5 px-4 cursor-pointer hover:bg-purple-100/70"
-                        onClick={() => toggleSort("name")}
-                      >
-                        Full Name{" "}
-                        {sortField === "name" &&
-                          (sortDirection === "asc" ? "↑" : "↓")}
-                      </th>
-                      <th
-                        className="py-3.5 px-4 cursor-pointer hover:bg-purple-100/70"
-                        onClick={() => toggleSort("house")}
-                      >
-                        Assigned Tribe{" "}
-                        {sortField === "house" &&
-                          (sortDirection === "asc" ? "↑" : "↓")}
-                      </th>
-                      <th
-                        className="py-3.5 px-4 cursor-pointer hover:bg-purple-100/70"
-                        onClick={() => toggleSort("department")}
-                      >
-                        College{" "}
-                        {sortField === "department" &&
-                          (sortDirection === "asc" ? "↑" : "↓")}
-                      </th>
-                      <th
-                        className="py-3.5 px-4 cursor-pointer hover:bg-purple-100/70"
-                        onClick={() => toggleSort("level")}
-                      >
-                        Level{" "}
-                        {sortField === "level" &&
-                          (sortDirection === "asc" ? "↑" : "↓")}
-                      </th>
-                      <th className="py-3.5 px-4">Matric No</th>
-                      <th className="py-3.5 px-4">Contact</th>
-                      <th className="py-3.5 px-4 text-right">Actions</th>
+                    <tr className="bg-purple-50/70 border-b border-purple-200 text-xs font-bold text-[#2E1065] uppercase">
+                      <th className="py-3 px-4">Full Name</th>
+                      <th className="py-3 px-4">Tribe</th>
+                      <th className="py-3 px-4">College</th>
+                      <th className="py-3 px-4">Level</th>
+                      <th className="py-3 px-4">Matric No</th>
+                      <th className="py-3 px-4">Contact</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 text-sm">
-                    {paginatedStudents.length === 0 ? (
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredStudents.length === 0 ? (
                       <tr>
                         <td
                           colSpan={7}
-                          className="py-12 text-center text-gray-500 font-medium"
+                          className="py-10 text-center text-gray-400"
                         >
                           No matching records found.
                         </td>
                       </tr>
                     ) : (
-                      paginatedStudents.map((student) => {
-                        const config =
+                      filteredStudents.map((student) => {
+                        const conf =
                           HOUSE_CONFIG[student.house] || HOUSE_CONFIG.esther;
                         return (
                           <tr
                             key={student._id}
-                            className="hover:bg-purple-50/40 transition-colors"
+                            className="hover:bg-purple-50/30 transition-colors"
                           >
-                            {/* Name */}
-                            <td className="py-3.5 px-4 font-bold text-gray-900">
+                            <td className="py-3 px-4 font-bold text-gray-900">
                               <button
                                 onClick={() => setSelectedStudent(student)}
-                                className="hover:text-[#7E22CE] text-left"
+                                className="hover:text-purple-700 text-left"
                               >
                                 {student.name}
                               </button>
                             </td>
 
-                            {/* Tribe */}
-                            <td className="py-3.5 px-4">
+                            <td className="py-3 px-4">
                               <span
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold"
                                 style={{
-                                  backgroundColor: `${config.hex}15`,
-                                  borderColor: `${config.hex}50`,
-                                  color: config.hex,
+                                  backgroundColor: `${conf.hex}15`,
+                                  color: conf.hex,
                                 }}
                               >
                                 <TribeLucideIcon
                                   tribe={student.house}
-                                  className="w-3.5 h-3.5"
+                                  className="w-3 h-3"
                                 />
-                                <span>{config.name}</span>
+                                <span>{conf.name}</span>
                               </span>
                             </td>
 
-                            {/* College */}
-                            <td className="py-3.5 px-4 font-bold text-amber-900">
+                            <td className="py-3 px-4 font-bold text-amber-900">
                               <span className="px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-xs">
                                 {student.department}
                               </span>
                             </td>
 
-                            {/* Level */}
-                            <td className="py-3.5 px-4 font-medium text-gray-700">
+                            <td className="py-3 px-4 text-gray-600 font-medium">
                               {student.level}L
                             </td>
 
-                            {/* Matric */}
-                            <td className="py-3.5 px-4 font-mono text-xs text-gray-600">
-                              {student.matricNumber || (
-                                <span className="text-gray-400 italic">—</span>
-                              )}
+                            <td className="py-3 px-4 font-mono text-xs text-gray-600">
+                              {student.matricNumber || "—"}
                             </td>
 
-                            {/* Contact */}
-                            <td className="py-3.5 px-4 text-xs text-gray-600">
+                            <td className="py-3 px-4 text-xs">
                               {student.phoneNumber ? (
                                 <a
                                   href={`https://wa.me/${student.phoneNumber.replace(/\D/g, "")}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="hover:text-green-600 font-semibold"
+                                  className="text-green-700 font-semibold hover:underline"
                                 >
                                   {student.phoneNumber}
                                 </a>
                               ) : (
-                                <span className="text-gray-400">—</span>
+                                "—"
                               )}
                             </td>
 
-                            {/* Action Buttons */}
-                            <td className="py-3.5 px-4 text-right">
-                              <div className="flex items-center justify-end gap-2">
+                            <td className="py-3 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   onClick={() => setSelectedStudent(student)}
-                                  className="p-1.5 rounded-lg text-gray-500 hover:text-[#7E22CE] hover:bg-purple-100 transition-all"
-                                  title="View full dossier"
+                                  className="p-1 rounded hover:bg-purple-100 text-gray-600 hover:text-purple-800"
+                                  title="View details"
                                 >
                                   <Eye className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={() =>
-                                    handleDeleteStudent(
-                                      student._id,
-                                      student.name
-                                    )
+                                    handleDelete(student._id, student.name)
                                   }
                                   disabled={deletingId === student._id}
-                                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all disabled:opacity-30"
-                                  title="Remove member"
+                                  className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600"
+                                  title="Delete"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
@@ -1207,234 +796,157 @@ export default function OfficialsDashboard() {
                   </tbody>
                 </table>
               </div>
-
-              {/* Pagination controls */}
-              {totalPages > 1 && (
-                <div className="p-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-600 font-medium">
-                  <span>
-                    Page {currentPage} of {totalPages} (
-                    {filteredStudents.length} records)
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1.5 rounded-lg border border-gray-300 disabled:opacity-40 hover:bg-gray-50 font-bold"
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={() =>
-                        setCurrentPage((p) => Math.min(p + 1, totalPages))
-                      }
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-1.5 rounded-lg border border-gray-300 disabled:opacity-40 hover:bg-gray-50 font-bold"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
       </main>
 
-      {/* ===================== STUDENT DOSSIER MODAL ===================== */}
+      {/* ==================== STUDENT DETAILS POPUP MODAL ==================== */}
       {selectedStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full border-2 border-[#D4AF37] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full border border-purple-200 overflow-hidden">
             {/* Modal Header */}
-            <div className="p-5 sm:p-6 bg-gradient-to-r from-[#2E1065] to-[#4C1D95] text-white flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center border-2 shadow-md"
+            <div className="p-4 bg-[#2E1065] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white"
                   style={{
-                    backgroundColor: `${HOUSE_CONFIG[selectedStudent.house]?.hex || "#D4AF37"}20`,
-                    borderColor:
-                      HOUSE_CONFIG[selectedStudent.house]?.hex || "#D4AF37",
+                    backgroundColor:
+                      HOUSE_CONFIG[selectedStudent.house]?.hex || "#7E22CE",
                   }}
                 >
                   <TribeLucideIcon
                     tribe={selectedStudent.house}
-                    className="w-6 h-6 text-white"
+                    className="w-4 h-4"
                   />
-                </div>
+                </span>
                 <div>
-                  <h3 className="text-xl font-bold text-white">
+                  <h3 className="font-bold text-sm text-white leading-tight">
                     {selectedStudent.name}
                   </h3>
-                  <span className="text-xs text-[#F5D061] font-semibold">
-                    {HOUSE_CONFIG[selectedStudent.house]?.name} • Level{" "}
-                    {selectedStudent.level}
+                  <span className="text-[10px] text-[#F5D061] font-semibold">
+                    {HOUSE_CONFIG[selectedStudent.house]?.name} •{" "}
+                    {selectedStudent.department} {selectedStudent.level}L
                   </span>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedStudent(null)}
-                className="p-1 rounded-lg hover:bg-white/20 text-gray-300 hover:text-white transition-colors"
+                className="text-gray-300 hover:text-white p-1"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Modal Body Details */}
-            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-sm">
-              {/* College & Matric */}
-              <div className="grid grid-cols-2 gap-3 bg-purple-50/60 p-3.5 rounded-2xl border border-purple-200/80">
+            {/* Modal Content */}
+            <div className="p-4 space-y-3 text-xs max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-gray-200">
                 <div>
-                  <span className="block text-xs font-bold text-gray-500 uppercase">
-                    College
-                  </span>
-                  <span className="font-extrabold text-[#581C87] text-base">
+                  <span className="text-gray-400 font-bold block">COLLEGE</span>
+                  <span className="font-bold text-gray-800 text-sm">
                     {selectedStudent.department}
                   </span>
                 </div>
                 <div>
-                  <span className="block text-xs font-bold text-gray-500 uppercase">
-                    Matric Number
+                  <span className="text-gray-400 font-bold block">MATRIC</span>
+                  <span className="font-mono font-bold text-gray-800 text-sm">
+                    {selectedStudent.matricNumber || "Not provided"}
                   </span>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="font-mono font-bold text-gray-800 text-sm">
-                      {selectedStudent.matricNumber || "Not provided"}
-                    </span>
-                    {selectedStudent.matricNumber && (
-                      <button
-                        onClick={() =>
-                          copyToClipboard(
-                            selectedStudent.matricNumber!,
-                            "matric"
-                          )
-                        }
-                        className="text-gray-400 hover:text-purple-700"
-                        title="Copy matric"
-                      >
-                        {copiedField === "matric" ? (
-                          <Check className="w-3.5 h-3.5 text-green-600" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    )}
-                  </div>
                 </div>
               </div>
 
               {/* Contacts */}
-              <div className="space-y-2">
-                <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider">
-                  Contact Information
-                </span>
-                <div className="space-y-1.5">
-                  {selectedStudent.email && (
-                    <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-gray-200">
-                      <span className="text-gray-700 font-medium text-xs sm:text-sm">
-                        {selectedStudent.email}
-                      </span>
-                      <a
-                        href={`mailto:${selectedStudent.email}`}
-                        className="text-xs font-bold text-purple-700 hover:underline flex items-center gap-1"
-                      >
-                        <Mail className="w-3.5 h-3.5" /> Email
-                      </a>
-                    </div>
-                  )}
-
-                  {selectedStudent.phoneNumber && (
-                    <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-gray-200">
-                      <span className="text-gray-700 font-medium text-xs sm:text-sm font-mono">
-                        {selectedStudent.phoneNumber}
-                      </span>
-                      <a
-                        href={`https://wa.me/${selectedStudent.phoneNumber.replace(/\D/g, "")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs font-bold text-green-700 hover:underline flex items-center gap-1"
-                      >
-                        <Phone className="w-3.5 h-3.5" /> WhatsApp
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Sports Events Selected */}
-              <div>
-                <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                  Interested Sports & Games
-                </span>
-                {selectedStudent.sportsEvents &&
-                selectedStudent.sportsEvents.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedStudent.sportsEvents.map((act) => (
-                      <span
-                        key={act}
-                        className="px-2.5 py-1 rounded-lg bg-purple-100 text-[#581C87] text-xs font-bold border border-purple-200"
-                      >
-                        {act}
-                      </span>
-                    ))}
+              <div className="space-y-1.5">
+                {selectedStudent.email && (
+                  <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                    <span className="text-gray-700 font-medium">
+                      {selectedStudent.email}
+                    </span>
+                    <a
+                      href={`mailto:${selectedStudent.email}`}
+                      className="font-bold text-purple-700 hover:underline"
+                    >
+                      Email
+                    </a>
                   </div>
-                ) : (
-                  <p className="text-xs text-gray-400 italic">
-                    None selected during registration.
-                  </p>
+                )}
+                {selectedStudent.phoneNumber && (
+                  <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                    <span className="text-gray-700 font-mono font-medium">
+                      {selectedStudent.phoneNumber}
+                    </span>
+                    <a
+                      href={`https://wa.me/${selectedStudent.phoneNumber.replace(/\D/g, "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-bold text-green-700 hover:underline flex items-center gap-1"
+                    >
+                      <Phone className="w-3 h-3" /> WhatsApp
+                    </a>
+                  </div>
                 )}
               </div>
 
-              {/* Medical Considerations */}
+              {/* Sports */}
+              {selectedStudent.sportsEvents &&
+                selectedStudent.sportsEvents.length > 0 && (
+                  <div>
+                    <span className="text-gray-500 font-bold block mb-1">
+                      SELECTED SPORTS
+                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedStudent.sportsEvents.map((act) => (
+                        <span
+                          key={act}
+                          className="px-2 py-0.5 rounded bg-purple-100 text-purple-900 font-semibold text-[10px]"
+                        >
+                          {act}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              {/* Medical */}
               {selectedStudent.medicalConsiderations && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                  <span className="block text-xs font-bold text-amber-900 uppercase flex items-center gap-1.5 mb-1">
-                    <HeartPulse className="w-3.5 h-3.5 text-amber-700" />
-                    Medical Considerations
+                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                  <span className="text-amber-900 font-bold block mb-0.5 flex items-center gap-1">
+                    <HeartPulse className="w-3 h-3" /> Medical Note
                   </span>
-                  <p className="text-xs text-amber-950 font-medium">
+                  <p className="text-amber-950 font-medium">
                     {selectedStudent.medicalConsiderations}
                   </p>
                 </div>
               )}
 
-              {/* Suggestions / Expectations */}
+              {/* Suggestions */}
               {selectedStudent.suggestions && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
-                  <span className="block text-xs font-bold text-blue-900 uppercase flex items-center gap-1.5 mb-1">
-                    <Lightbulb className="w-3.5 h-3.5 text-blue-700" />
-                    Suggestions / Expectations
+                <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
+                  <span className="text-blue-900 font-bold block mb-0.5 flex items-center gap-1">
+                    <Lightbulb className="w-3 h-3" /> Suggestion
                   </span>
-                  <p className="text-xs text-blue-950 font-medium">
+                  <p className="text-blue-950 font-medium">
                     &ldquo;{selectedStudent.suggestions}&rdquo;
                   </p>
                 </div>
               )}
-
-              {/* Timestamp */}
-              <div className="pt-2 text-right text-xs text-gray-400">
-                Registered on{" "}
-                {new Date(selectedStudent.createdAt).toLocaleString()}
-              </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+            <div className="p-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
               <button
                 type="button"
                 onClick={() =>
-                  handleDeleteStudent(
-                    selectedStudent._id,
-                    selectedStudent.name
-                  )
+                  handleDelete(selectedStudent._id, selectedStudent.name)
                 }
-                className="text-xs font-bold text-red-600 hover:text-red-800 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                className="text-red-600 hover:text-red-800 font-bold text-xs flex items-center gap-1"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Remove Member</span>
+                <Trash2 className="w-3.5 h-3.5" /> Delete
               </button>
-
               <button
                 type="button"
                 onClick={() => setSelectedStudent(null)}
-                className="px-5 py-2 rounded-xl bg-gray-800 text-white text-xs font-bold hover:bg-gray-900 transition-colors"
+                className="px-4 py-1.5 rounded-lg bg-gray-800 text-white font-bold text-xs"
               >
                 Close
               </button>
@@ -1442,7 +954,6 @@ export default function OfficialsDashboard() {
           </div>
         </div>
       )}
-      </div>
     </div>
   );
 }
