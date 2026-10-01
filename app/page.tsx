@@ -189,7 +189,7 @@ export default function Home() {
             {closedMessage || "Registration is currently closed. Please contact the organizers for more information."}
           </p>
           <div className="pt-4 border-t border-[#D4AF37]/30">
-            <p className="text-sm text-purple-800 font-semibold tracking-wide uppercase">The Sisters Olympics</p>
+            <p className="text-sm text-purple-800 font-semibold tracking-wide uppercase">Cross Fit: The Sisters Olympics</p>
           </div>
         </div>
       </main>
@@ -263,7 +263,7 @@ export default function Home() {
 
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white mb-3 tracking-tight drop-shadow-2xl">
             <span className="bg-gradient-to-r from-[#FCE7F3] via-[#E9D5FF] to-[#F5D061] bg-clip-text text-transparent">
-              The Sisters Olympics
+              Cross Fit: The Sisters Olympics
             </span>
           </h1>
 
@@ -677,7 +677,7 @@ export default function Home() {
         <div className="mt-8 text-center px-4">
           <p className="text-[#D4AF37] font-semibold text-sm sm:text-base tracking-wide flex items-center justify-center gap-2">
             <Crown className="w-4 h-4 text-[#D4AF37]" />
-            <span>The Sisters Olympics — Loved by the father, claimed by the king</span>
+            <span>Cross Fit: The Sisters Olympics — Loved by the father, claimed by the king</span>
             <Crown className="w-4 h-4 text-[#D4AF37]" />
           </p>
           <p className="text-purple-300 text-xs mt-1">

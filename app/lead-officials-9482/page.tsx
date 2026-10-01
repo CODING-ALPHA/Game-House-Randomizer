@@ -23,6 +23,7 @@ import {
   RefreshCw,
   Trash2,
   Eye,
+  EyeOff,
   X,
   Filter,
   LogOut,
@@ -70,6 +71,7 @@ export default function OfficialsDashboard() {
   const router = useRouter();
   const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -357,7 +359,7 @@ export default function OfficialsDashboard() {
             </div>
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-purple-100 text-[#581C87] border border-purple-200 mb-2">
               <Crown className="w-3.5 h-3.5 text-[#D4AF37]" />
-              The Sisters Olympics
+              Cross Fit: The Sisters Olympics
             </span>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-[#2E1065] tracking-tight">
               Officials Portal
@@ -377,15 +379,26 @@ export default function OfficialsDashboard() {
               </label>
               <div className="relative">
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   id="adminPassword"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   placeholder="Enter authorized key"
-                  className="w-full px-4 py-3.5 bg-white border-2 border-purple-200 rounded-xl focus:ring-2 focus:ring-[#D4AF37] focus:border-[#7E22CE] outline-none transition-all text-gray-900 placeholder:text-gray-400 font-medium text-base shadow-sm"
+                  className="w-full pl-4 pr-12 py-3.5 bg-white border-2 border-purple-200 rounded-xl focus:ring-2 focus:ring-[#D4AF37] focus:border-[#7E22CE] outline-none transition-all text-gray-900 placeholder:text-gray-400 font-medium text-base shadow-sm"
                 />
-                <Lock className="w-5 h-5 text-gray-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-purple-700 p-1 rounded-lg focus:outline-none transition-colors"
+                  title={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5 text-[#7E22CE]" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
               </div>
             </div>
 
@@ -443,7 +456,7 @@ export default function OfficialsDashboard() {
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-base sm:text-xl font-black tracking-tight text-white">
-                    The Sisters Olympics
+                    Cross Fit: The Sisters Olympics
                   </h1>
                   <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#D4AF37]/20 text-[#F5D061] border border-[#D4AF37]/40">
                     Lead Officials

@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "The Sisters Olympics | Royal Tribe Randomizer",
+  title: "Cross Fit: The Sisters Olympics | Royal Tribe Randomizer",
   description:
-    "👑 The Sisters Olympics. Discover your royal tribe: Tribe Jael, Tribe Abigail, Tribe Esther, Tribe Deborah, or Tribe Priscilla!",
+    "👑 Cross Fit: The Sisters Olympics. Discover your royal tribe: Tribe Jael, Tribe Abigail, Tribe Esther, Tribe Deborah, or Tribe Priscilla!",
   keywords: [
+    "Cross Fit: The Sisters Olympics",
     "The Sisters Olympics",
     "Royal Tribe Randomizer",
     "Tribe Jael",
@@ -17,26 +18,26 @@ export const metadata: Metadata = {
     "University",
     "Sports Day",
   ],
-  authors: [{ name: "The Sisters Olympics" }],
-  creator: "The Sisters Olympics",
-  publisher: "The Sisters Olympics",
+  authors: [{ name: "Cross Fit: The Sisters Olympics" }],
+  creator: "Cross Fit: The Sisters Olympics",
+  publisher: "Cross Fit: The Sisters Olympics",
 
   // Open Graph for social media sharing
   openGraph: {
     type: "website",
     locale: "en_US",
-    title: "The Sisters Olympics | Royal Tribe Randomizer",
+    title: "Cross Fit: The Sisters Olympics | Royal Tribe Randomizer",
     description:
       "👑 Discover your royal tribe: Tribe Jael, Tribe Abigail, Tribe Esther, Tribe Deborah, or Tribe Priscilla! Saturday, 17th October, 2026.",
-    siteName: "The Sisters Olympics",
+    siteName: "Cross Fit: The Sisters Olympics",
   },
 
   // Twitter Card
   twitter: {
     card: "summary_large_image",
-    title: "The Sisters Olympics",
+    title: "Cross Fit: The Sisters Olympics",
     description:
-      "👑 The Sisters Olympics. Join us Saturday, 17th October, 2026 at the Main school field!",
+      "👑 Cross Fit: The Sisters Olympics. Join us Saturday, 17th October, 2026 at the Main school field!",
   },
 
   // Additional metadata
@@ -133,7 +134,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#3B0764" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="The Sisters Olympics" />
+        <meta name="apple-mobile-web-app-title" content="Cross Fit: The Sisters Olympics" />
 
         {/* Canonical URL */}
         <link

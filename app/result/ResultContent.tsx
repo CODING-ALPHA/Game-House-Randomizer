@@ -175,7 +175,7 @@ export default function ResultContent() {
           <div className="mt-2 mb-4">
             <span className="inline-flex items-center gap-1.5 px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest bg-purple-100 text-[#4C1D95] border border-purple-200">
               <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span>The Sisters Olympics</span>
+              <span>Cross Fit: The Sisters Olympics</span>
               <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
             </span>
           </div>

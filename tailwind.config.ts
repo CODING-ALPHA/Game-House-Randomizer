@@ -68,7 +68,7 @@ const config: Config = {
           800: "#7A5012",
           DEFAULT: "#D4AF37",
         },
-        // The Sisters Olympics Tribes
+        // Cross Fit: The Sisters Olympics Tribes
         jael: {
           DEFAULT: "#DC2626", // Red
           light: "#EF4444",
