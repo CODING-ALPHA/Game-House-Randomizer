@@ -4,28 +4,24 @@ import Student from "@/models/Student";
 import { assignHouse } from "@/lib/houseAssignment";
 import { REGISTRATION_CONFIG } from "@/config/registration";
 
-const DEPARTMENT_CODE_MAP: Record<string, string> = {
-  "computer science": "CSC",
-  "cyber security": "CYB",
-  "information technology": "IFT",
-  "software engineering": "SEN",
-  "mass communication": "MAS",
-};
+export const VALID_COLLEGES = [
+  "COAES",
+  "COMSS",
+  "COCS",
+  "COHES",
+  "COLAW",
+  "COEVS",
+  "COLBS",
+] as const;
 
-function getDepartmentCode(department: string): string | undefined {
-  return DEPARTMENT_CODE_MAP[department.trim().toLowerCase()];
-}
-
-// ADD THIS VALIDATION FUNCTION
 function validateMatricNumber(
   level: string,
-  department: string,
+  college: string,
   matricNumber?: string
 ): string | null {
   const trimmedLevel = typeof level === "string" ? level.trim() : "";
-  const trimmedDepartment = typeof department === "string" ? department.trim() : "";
+  const trimmedCollege = typeof college === "string" ? college.trim().toUpperCase() : "";
   const normalizedMatric = matricNumber?.trim() ?? "";
-  const departmentCode = trimmedDepartment ? getDepartmentCode(trimmedDepartment) : undefined;
 
   // For level 100, matric number is optional
   if (trimmedLevel === "100" && normalizedMatric === "") {
@@ -41,13 +37,10 @@ function validateMatricNumber(
     return null;
   }
 
-  if (!departmentCode) {
-    return "Invalid department selected";
-  }
-
-  const matricRegex = new RegExp(`^BU\\d{2}${departmentCode}\\d{4}$`);
+  // Accepts standard Bowen matric format: BU + 2 digits + 3-5 letters + 4 digits
+  const matricRegex = /^BU\d{2}[A-Z]{3,5}\d{4}$/;
   if (!matricRegex.test(normalizedMatric.toUpperCase())) {
-    return `Invalid matric number format. Example: BU22${departmentCode}1068`;
+    return `Invalid matric number format. Example: BU22${trimmedCollege || "COCS"}1068`;
   }
 
   return null; // No error
@@ -81,16 +74,47 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB();
 
-    const { name, level, department, matricNumber } = await request.json();
+    const {
+      name,
+      level,
+      department,
+      matricNumber,
+      email,
+      phoneNumber,
+      sportsEvents,
+      medicalConsiderations,
+      suggestions,
+    } = await request.json();
 
     // Defensive assignments
     safeName = typeof name === "string" ? name : "";
     safeLevel = typeof level === "string" ? level : "";
     safeDepartment = typeof department === "string" ? department : "";
+    const safeEmail = typeof email === "string" ? email.trim() : "";
+    const safePhoneNumber = typeof phoneNumber === "string" ? phoneNumber.trim() : "";
+    const safeSportsEvents = Array.isArray(sportsEvents)
+      ? sportsEvents.filter((e) => typeof e === "string")
+      : [];
+    const safeMedical = typeof medicalConsiderations === "string" ? medicalConsiderations.trim() : "";
+    const safeSuggestions = typeof suggestions === "string" ? suggestions.trim() : "";
 
     if (!safeName || !safeLevel || !safeDepartment) {
       return NextResponse.json(
-        { error: "Name, level, and department are required" },
+        { error: "Name, level, and college are required" },
+        { status: 400 }
+      );
+    }
+
+    if (!safeEmail) {
+      return NextResponse.json(
+        { error: "Email address is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!safePhoneNumber) {
+      return NextResponse.json(
+        { error: "Phone number is required" },
         { status: 400 }
       );
     }
@@ -139,14 +163,21 @@ export async function POST(request: NextRequest) {
     // Assign house using balanced randomization
     const house = await assignHouse();
 
-    const studentData = {
+    const studentData: Record<string, any> = {
       name: safeName.trim(),
       level: safeLevel.trim(),
       department: safeDepartment.trim(),
       house,
-      // UPDATE THIS: Only set matricNumber if provided and not empty
-      matricNumber: normalizedMatricNumber !== "" ? normalizedMatricNumber : null,
+      email: safeEmail,
+      phoneNumber: safePhoneNumber,
+      sportsEvents: safeSportsEvents,
+      medicalConsiderations: safeMedical,
+      suggestions: safeSuggestions,
     };
+
+    if (normalizedMatricNumber !== "") {
+      studentData.matricNumber = normalizedMatricNumber;
+    }
 
     const student = await Student.create(studentData);
 
@@ -160,7 +191,7 @@ export async function POST(request: NextRequest) {
       // Check if it's a matric number duplicate error
       if (error.keyPattern && error.keyPattern.matricNumber) {
         return NextResponse.json(
-          { error: "Matric number already exists" },
+          { error: "Matric number already registered" },
           { status: 400 }
         );
       }
@@ -183,8 +214,8 @@ export async function POST(request: NextRequest) {
 
     console.error("Registration error:", error);
     return NextResponse.json(
-      { error: "Failed to register student" },
-      { status: 500 }
+      { error: error?.message || "Failed to register student" },
+      { status: 400 }
     );
   }
 }

@@ -29,7 +29,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ student });
+    const studentObj = student.toObject ? student.toObject() : student;
+    return NextResponse.json({
+      ...studentObj,
+      student: studentObj,
+    });
   } catch (error) {
     console.error("Error fetching student:", error);
     return NextResponse.json(

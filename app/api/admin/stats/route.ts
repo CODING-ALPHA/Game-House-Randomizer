@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Student from "@/models/Student";
-import { HouseType } from "@/config/houses";
+import { HouseType, HOUSE_CONFIG } from "@/config/houses";
 import { requireAdmin } from "@/lib/adminAuth";
 
 export async function GET(request: NextRequest) {
@@ -14,23 +14,17 @@ export async function GET(request: NextRequest) {
 
     const total = await Student.countDocuments();
 
-    const houses: HouseType[] = [
-      "stark",
-      "baratheon",
-      "greyjoy",
-      "lannister",
-      "targaryen",
-    ];
+    const allHouses = Object.keys(HOUSE_CONFIG) as HouseType[];
 
-    const houseCounts: Record<HouseType, number> = {
-      stark: 0,
-      baratheon: 0,
-      greyjoy: 0,
-      lannister: 0,
-      targaryen: 0,
-    };
+    const houseCounts: Record<HouseType, number> = allHouses.reduce(
+      (acc, house) => {
+        acc[house] = 0;
+        return acc;
+      },
+      {} as Record<HouseType, number>
+    );
 
-    for (const house of houses) {
+    for (const house of allHouses) {
       const count = await Student.countDocuments({ house });
       houseCounts[house] = count;
     }

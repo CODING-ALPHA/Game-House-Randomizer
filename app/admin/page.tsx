@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { HOUSE_CONFIG, HouseType } from "@/config/houses";
+import { HOUSE_CONFIG, HouseType, PRIMARY_HOUSES } from "@/config/houses";
+import { TribeLucideIcon } from "@/components/RoyalIcons";
 
 interface Student {
   _id: string;
@@ -10,6 +11,11 @@ interface Student {
   level: string;
   department: string;
   matricNumber?: string;
+  email?: string;
+  phoneNumber?: string;
+  sportsEvents?: string[];
+  medicalConsiderations?: string;
+  suggestions?: string;
   house: HouseType;
   createdAt: string;
 }
@@ -476,33 +482,35 @@ export default function AdminPage() {
               {activeTab === "overview" && stats && (
                 <div className="space-y-6">
                   {/* Stats Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-4">
-                    <div className="bg-gradient-to-br from-blue-600 to-blue-700 text-white p-6 rounded-2xl shadow-lg col-span-1 sm:col-span-2 lg:col-span-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                    <div className="bg-gradient-to-br from-[#7E22CE] to-[#4C1D95] text-white p-6 rounded-2xl shadow-lg border-2 border-[#D4AF37]">
                       <div className="text-3xl lg:text-4xl font-bold mb-2">{stats.total}</div>
-                      <div className="text-sm lg:text-base font-semibold opacity-90">Total Students</div>
+                      <div className="text-sm lg:text-base font-semibold text-purple-200">Total Registered</div>
                     </div>
-                    {Object.entries(HOUSE_CONFIG).map(([key, config]) => {
-                      // Determine text color based on house for better contrast
-                      const isDarkHouse = ["greyjoy", "lannister", "targaryen"].includes(key);
-                      const textColor = isDarkHouse ? "text-white" : "text-gray-900";
-                      const subTextColor = isDarkHouse ? "text-white/90" : "text-gray-700";
-                      
+                    {PRIMARY_HOUSES.map((key) => {
+                      const config = HOUSE_CONFIG[key];
                       return (
                         <div
                           key={key}
-                          className={`bg-gradient-to-br ${config.gradient} ${textColor} p-4 lg:p-6 rounded-2xl shadow-lg border-2 border-white/30`}
+                          className={`bg-gradient-to-br ${config.gradient} text-white p-4 lg:p-6 rounded-2xl shadow-lg border-2 border-white/30`}
                         >
                           <div className="flex items-center gap-3 mb-2">
-                            <img 
-                              src={config.image} 
-                              alt={config.name} 
-                              className="w-8 h-8 lg:w-10 lg:h-10 rounded-full border-2 border-white/50 shadow-sm bg-white object-cover" 
-                            />
+                            {config.image ? (
+                              <img 
+                                src={config.image} 
+                                alt={config.name} 
+                                className="w-8 h-8 lg:w-10 lg:h-10 rounded-full border-2 border-white/50 shadow-sm bg-white object-cover" 
+                              />
+                            ) : (
+                              <span className="w-8 h-8 lg:w-10 lg:h-10 rounded-full border-2 border-white/50 shadow-sm flex items-center justify-center bg-white/20 backdrop-blur-sm">
+                                <TribeLucideIcon tribe={key} className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
+                              </span>
+                            )}
                             <div className="text-lg lg:text-2xl font-bold">
                               {stats.houses[key as HouseType] || 0}
                             </div>
                           </div>
-                          <div className={`text-xs lg:text-sm font-semibold ${subTextColor} opacity-90 truncate`}>
+                          <div className="text-xs lg:text-sm font-semibold text-white/90 truncate">
                             {config.name}
                           </div>
                         </div>
@@ -628,10 +636,10 @@ export default function AdminPage() {
                         </svg>
                         <input
                           type="text"
-                          placeholder="Search by name, level, or department..."
+                          placeholder="Search by name, level, or college..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none placeholder-gray-400"
+                          className="w-full pl-10 pr-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900 placeholder:text-gray-500"
                         />
                       </div>
                       
@@ -640,7 +648,7 @@ export default function AdminPage() {
                         <select
                           value={filterHouse}
                           onChange={(e) => setFilterHouse(e.target.value as HouseType | "all")}
-                          className="px-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          className="px-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
                         >
                           <option value="all">All Houses</option>
                           {Object.entries(HOUSE_CONFIG).map(([key, config]) => (
@@ -653,7 +661,7 @@ export default function AdminPage() {
                         <select
                           value={filterLevel}
                           onChange={(e) => setFilterLevel(e.target.value)}
-                          className="px-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          className="px-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
                         >
                           <option value="all">All Levels</option>
                           {uniqueLevels.map((level) => (
@@ -666,9 +674,9 @@ export default function AdminPage() {
                         <select
                           value={filterDepartment}
                           onChange={(e) => setFilterDepartment(e.target.value)}
-                          className="px-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          className="px-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
                         >
-                          <option value="all">All Departments</option>
+                          <option value="all">All Colleges</option>
                           {uniqueDepartments.map((dept) => (
                             <option key={dept} value={dept}>
                               {dept}
@@ -704,7 +712,7 @@ export default function AdminPage() {
                             { field: "name" as SortField, label: "Name" },
                             { field: "matricNumber" as SortField, label: "Matric No." },
                             { field: "level" as SortField, label: "Level" },
-                            { field: "department" as SortField, label: "Department" },
+                            { field: "department" as SortField, label: "College" },
                             { field: "house" as SortField, label: "House" },
                             { field: "createdAt" as SortField, label: "Registered" },
                           ].map(({ field, label }) => (
@@ -774,13 +782,22 @@ export default function AdminPage() {
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap">
                                 <div className="flex items-center gap-2">
-                                  <img
-                                    src={HOUSE_CONFIG[student.house].image}
-                                    alt={HOUSE_CONFIG[student.house].name}
-                                    className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm bg-white"
-                                  />
+                                  {HOUSE_CONFIG[student.house]?.image ? (
+                                    <img
+                                      src={HOUSE_CONFIG[student.house].image}
+                                      alt={HOUSE_CONFIG[student.house]?.name || student.house}
+                                      className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm bg-white"
+                                    />
+                                  ) : (
+                                    <span
+                                      className="w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-sm font-bold text-white border-2 border-white"
+                                      style={{ backgroundColor: HOUSE_CONFIG[student.house]?.hex || "#9333EA" }}
+                                    >
+                                      <TribeLucideIcon tribe={student.house} className="w-4 h-4 text-white" />
+                                    </span>
+                                  )}
                                   <span className="text-sm font-semibold text-gray-800 hidden sm:block">
-                                    {HOUSE_CONFIG[student.house].name}
+                                    {HOUSE_CONFIG[student.house]?.name || student.house}
                                   </span>
                                 </div>
                               </td>

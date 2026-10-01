@@ -2,51 +2,41 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Game of Thrones | NACOS x NAMACOS House Randomizer",
+  title: "Daughters of the King | Royal Tribe Randomizer",
   description:
-    "⚔️ Discover your allegiance! Join the NACOS x NAMACOS Game of Thrones event and get assigned to your house - Stark, Targaryen, Lannister, Baratheon, or Greyjoy!",
+    "👑 Loved by the father, claimed by the king. Discover your royal tribe: Tribe Jael, Tribe Abigail, Tribe Esther, Tribe Deborah, or Tribe Priscilla!",
   keywords: [
-    "NACOS",
-    "NAMACOS",
-    "Game of Thrones",
-    "house randomizer",
-    "school event",
-    "sports",
-    "university",
-    "students",
-    "house assignment",
+    "Daughters of the King",
+    "Royal Tribe Randomizer",
+    "Tribe Jael",
+    "Tribe Abigail",
+    "Tribe Esther",
+    "Tribe Deborah",
+    "Tribe Priscilla",
+    "Lilac and Gold",
+    "University",
+    "Sports Day",
   ],
-  authors: [{ name: "NACOS x NAMACOS" }],
-  creator: "NACOS x NAMACOS",
-  publisher: "NACOS x NAMACOS",
+  authors: [{ name: "Daughters of the King" }],
+  creator: "Daughters of the King",
+  publisher: "Daughters of the King",
 
   // Open Graph for social media sharing
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://game-of-thrones-seven-sooty.vercel.app",
-    title: "Game of Thrones | NACOS x NAMACOS House Randomizer",
+    title: "Daughters of the King | Loved by the father, claimed by the king",
     description:
-      "⚔️ Discover your allegiance in the NACOS x NAMACOS Game of Thrones event! Get assigned to Stark, Targaryen, Lannister, Baratheon, or Greyjoy.",
-    siteName: "NACOS x NAMACOS Game of Thrones",
-    images: [
-      {
-        url: "https://game-of-thrones-seven-sooty.vercel.app/og-image.jpg",
-        width: 1200,
-        height: 630,
-        alt: "NACOS x NAMACOS Game of Thrones Event - Choose Your House",
-      },
-    ],
+      "👑 Discover your royal tribe: Tribe Jael, Tribe Abigail, Tribe Esther, Tribe Deborah, or Tribe Priscilla! Saturday, 17th October, 2026.",
+    siteName: "Daughters of the King",
   },
 
   // Twitter Card
   twitter: {
     card: "summary_large_image",
-    title: "Game of Thrones | NACOS x NAMACOS",
+    title: "Daughters of the King",
     description:
-      "⚔️ Discover your house allegiance for the epic NACOS x NAMACOS event! Join Stark, Targaryen, Lannister, Baratheon, or Greyjoy.",
-    images: ["https://game-of-thrones-seven-sooty.vercel.app/og-image.jpg"],
-    creator: "@nacos_namacos",
+      "👑 Loved by the father, claimed by the king. Join us Saturday, 17th October, 2026 at the Main school field!",
   },
 
   // Additional metadata
@@ -140,10 +130,10 @@ export default function RootLayout({
     <html lang="en">
       <head>
         {/* Additional meta tags */}
-        <meta name="theme-color" content="#1a1a2e" />
+        <meta name="theme-color" content="#3B0764" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="NACOS x NAMACOS GoT" />
+        <meta name="apple-mobile-web-app-title" content="Daughters of the King" />
 
         {/* Canonical URL */}
         <link

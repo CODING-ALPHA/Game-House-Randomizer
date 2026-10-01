@@ -1,7 +1,7 @@
-import Student, { IStudent } from "@/models/Student";
-import { HouseType } from "@/config/houses";
+import Student from "@/models/Student";
+import { HouseType, PRIMARY_HOUSES } from "@/config/houses";
 
-const HOUSES: HouseType[] = ["stark", "baratheon", "greyjoy", "lannister", "targaryen"];
+const HOUSES: HouseType[] = PRIMARY_HOUSES;
 
 /**
  * Implements balanced randomization:

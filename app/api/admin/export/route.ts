@@ -19,20 +19,32 @@ export async function GET(request: NextRequest) {
       "Name",
       "Matric Number",
       "Level",
-      "Department",
-      "House",
+      "College",
+      "Tribe",
+      "Email",
+      "Phone Number",
+      "Sports Events",
+      "Medical Considerations",
+      "Suggestions",
       "Registered Date",
     ];
 
     const csvRows = [headers.join(",")];
 
-    for (const student of students) {
+    for (const student of students as any[]) {
+      const houseName = HOUSE_CONFIG[student.house as keyof typeof HOUSE_CONFIG]?.name || student.house || "Unassigned";
+      const sportsEventsStr = Array.isArray(student.sportsEvents) ? student.sportsEvents.join("; ") : "";
       const row = [
-        `"${student.name.replace(/"/g, '""')}"`,
+        `"${(student.name || "").replace(/"/g, '""')}"`,
         `"${(student.matricNumber || "").replace(/"/g, '""')}"`,
-        `"${student.level.replace(/"/g, '""')}"`,
-        `"${student.department.replace(/"/g, '""')}"`,
-        `"${HOUSE_CONFIG[student.house].name}"`,
+        `"${(student.level || "").replace(/"/g, '""')}"`,
+        `"${(student.department || "").replace(/"/g, '""')}"`,
+        `"${houseName.replace(/"/g, '""')}"`,
+        `"${(student.email || "").replace(/"/g, '""')}"`,
+        `"${(student.phoneNumber || "").replace(/"/g, '""')}"`,
+        `"${sportsEventsStr.replace(/"/g, '""')}"`,
+        `"${(student.medicalConsiderations || "").replace(/"/g, '""')}"`,
+        `"${(student.suggestions || "").replace(/"/g, '""')}"`,
         `"${new Date(student.createdAt).toLocaleString()}"`,
       ];
       csvRows.push(row.join(","));

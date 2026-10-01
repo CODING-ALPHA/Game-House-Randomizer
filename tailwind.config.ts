@@ -42,31 +42,83 @@ const config: Config = {
         "tertiary-text": "#64748B", // Slate 500
         // Background Colors
         "card-bg": "#FFFFFF",
-        // House Colors
+        // Theme Colors: Lilac and Gold
+        lilac: {
+          50: "#FAF5FF",
+          100: "#F3E8FF",
+          200: "#E9D5FF",
+          300: "#D8B4FE",
+          400: "#C084FC",
+          500: "#A855F7",
+          600: "#9333EA",
+          700: "#7E22CE",
+          800: "#581C87",
+          900: "#3B0764",
+          DEFAULT: "#C5A3CD",
+        },
+        gold: {
+          50: "#FFFDF0",
+          100: "#FFFBE6",
+          200: "#FFF4B8",
+          300: "#FFE685",
+          400: "#F5D061",
+          500: "#D4AF37",
+          600: "#B8860B",
+          700: "#996515",
+          800: "#7A5012",
+          DEFAULT: "#D4AF37",
+        },
+        // Daughters of the King Tribes
+        jael: {
+          DEFAULT: "#DC2626", // Red
+          light: "#EF4444",
+          dark: "#991B1B",
+        },
+        abigail: {
+          DEFAULT: "#16A34A", // Green
+          light: "#22C55E",
+          dark: "#166534",
+        },
+        esther: {
+          DEFAULT: "#9333EA", // Purple
+          light: "#A855F7",
+          dark: "#6B21A8",
+        },
+        deborah: {
+          DEFAULT: "#2563EB", // Blue
+          light: "#3B82F6",
+          dark: "#1E40AF",
+        },
+        priscilla: {
+          DEFAULT: "#DB2777", // Pink
+          light: "#EC4899",
+          dark: "#9D174D",
+        },
+        // Legacy Game of Thrones House Colors
         stark: {
-          DEFAULT: "#94A3B8", // Slate 400
-          light: "#CBD5E1", // Slate 300
-          dark: "#64748B", // Slate 500
+          DEFAULT: "#94A3B8",
+          light: "#CBD5E1",
+          dark: "#64748B",
         },
         baratheon: {
-          DEFAULT: "#FBBF24", // Amber 400
-          light: "#FCD34D", // Amber 300
-          dark: "#F59E0B", // Amber 500
+          DEFAULT: "#FBBF24",
+          light: "#FCD34D",
+          dark: "#F59E0B",
         },
         greyjoy: {
-          DEFAULT: "#1E293B", // Slate 800
-          light: "#334155", // Slate 700
-          dark: "#0F172A", // Slate 900
+          DEFAULT: "#1E293B",
+          light: "#334155",
+          dark: "#0F172A",
         },
         lannister: {
-          DEFAULT: "#DC2626", // Red 600
-          light: "#EF4444", // Red 500
-          dark: "#B91C1C", // Red 700
+          DEFAULT: "#DC2626",
+          light: "#EF4444",
+          dark: "#B91C1C",
         },
         targaryen: {
-          DEFAULT: "#F43F5E", // Rose 500
-          light: "#FB7185", // Rose 400
-          dark: "#E11D48", // Rose 600
+          DEFAULT: "#F43F5E",
+          light: "#FB7185",
+          dark: "#E11D48",
         },
       },
     },
