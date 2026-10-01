@@ -25,7 +25,7 @@ import {
   TribeLucideIcon,
 } from "@/components/RoyalIcons";
 
-const LEVELS = ["100", "200", "300", "400"];
+const LEVELS = ["100", "200", "300", "400", "500"];
 const COLLEGES = [
   "COAES",
   "COMSS",
