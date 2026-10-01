@@ -3,6 +3,38 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { HOUSE_CONFIG, HouseType, PRIMARY_HOUSES } from "@/config/houses";
+import {
+  Crown,
+  Sparkles,
+  User,
+  GraduationCap,
+  Landmark,
+  Hash,
+  Mail,
+  Phone,
+  Trophy,
+  HeartPulse,
+  Lightbulb,
+  Calendar,
+  MapPin,
+  Lock,
+  Search,
+  Download,
+  RefreshCw,
+  Trash2,
+  Eye,
+  X,
+  Filter,
+  LogOut,
+  CheckCircle2,
+  ChevronRight,
+  BarChart3,
+  Users,
+  ExternalLink,
+  ShieldCheck,
+  Copy,
+  Check,
+} from "lucide-react";
 import { TribeLucideIcon } from "@/components/RoyalIcons";
 
 interface Student {
@@ -25,69 +57,117 @@ interface Stats {
   houses: Record<HouseType, number>;
 }
 
-type SortField = "name" | "level" | "department" | "matricNumber" | "house" | "createdAt";
+type SortField =
+  | "name"
+  | "level"
+  | "department"
+  | "matricNumber"
+  | "house"
+  | "createdAt";
 type SortDirection = "asc" | "desc";
 
-export default function AdminPage() {
+export default function OfficialsDashboard() {
   const router = useRouter();
   const [authenticated, setAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
+  const [authChecking, setAuthChecking] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const [students, setStudents] = useState<Student[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loadingData, setLoadingData] = useState(false);
-  
-  // Filters and search
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Selected student for detailed modal
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  // Tab & Filters
+  const [activeTab, setActiveTab] = useState<"overview" | "students">(
+    "overview"
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [filterHouse, setFilterHouse] = useState<HouseType | "all">("all");
   const [filterLevel, setFilterLevel] = useState<string>("all");
   const [filterDepartment, setFilterDepartment] = useState<string>("all");
-  const [activeTab, setActiveTab] = useState<"overview" | "students">("overview");
-  
-  // Sorting
+
+  // Sorting & Pagination
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
-  // Mobile sidebar state
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Restore session from sessionStorage on load
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedSecret = sessionStorage.getItem("officials_session_secret");
+      if (savedSecret) {
+        setPassword(savedSecret);
+        verifyAndFetch(savedSecret);
+        return;
+      }
+    }
+    setAuthChecking(false);
+  }, []);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const verifyAndFetch = async (secretToVerify: string) => {
     setLoading(true);
     setError(null);
-
     try {
       const response = await fetch("/api/admin/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ password: secretToVerify }),
       });
 
       const data = await response.json();
-
       if (data.success) {
         setAuthenticated(true);
-        fetchData();
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("officials_session_secret", secretToVerify);
+        }
+        await fetchDashboardData(secretToVerify);
       } else {
-        setError("Invalid password");
+        setAuthenticated(false);
+        setError("Invalid official authorization key");
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("officials_session_secret");
+        }
       }
-    } catch (err) {
-      setError("Authentication failed");
+    } catch {
+      setError("Unable to authenticate with server");
     } finally {
       setLoading(false);
+      setAuthChecking(false);
     }
   };
 
-  const fetchData = async () => {
-    setLoadingData(true);
-    try {
-      const adminPassword = password;
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password.trim()) return;
+    verifyAndFetch(password);
+  };
 
+  const handleLogout = () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("officials_session_secret");
+    }
+    setAuthenticated(false);
+    setPassword("");
+    setStudents([]);
+    setStats(null);
+  };
+
+  const fetchDashboardData = async (activeSecret = password) => {
+    setLoadingData(true);
+    setError(null);
+    try {
       const [studentsRes, statsRes] = await Promise.all([
-        fetch(`/api/admin/students?password=${encodeURIComponent(adminPassword)}`),
-        fetch(`/api/admin/stats?password=${encodeURIComponent(adminPassword)}`),
+        fetch(
+          `/api/admin/students?password=${encodeURIComponent(activeSecret)}`
+        ),
+        fetch(`/api/admin/stats?password=${encodeURIComponent(activeSecret)}`),
       ]);
 
       const studentsData = await studentsRes.json();
@@ -100,136 +180,112 @@ export default function AdminPage() {
 
       if (studentsData.students) setStudents(studentsData.students);
       if (statsData.stats) setStats(statsData.stats);
-    } catch (err) {
-      setError("Failed to load data");
+    } catch {
+      setError("Failed to synchronize latest data");
     } finally {
       setLoadingData(false);
     }
   };
 
-  const handleExport = async () => {
+  const handleExportCSV = async () => {
     try {
-      const adminPassword = password;
       const response = await fetch(
-        `/api/admin/export?password=${encodeURIComponent(adminPassword)}`
+        `/api/admin/export?password=${encodeURIComponent(password)}`
       );
 
       if (!response.ok) {
-        const error = await response.json();
-        setError(error.error || "Failed to export CSV");
+        const err = await response.json();
+        setError(err.error || "Failed to generate CSV export");
         return;
       }
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `students-export-${new Date().toISOString().split("T")[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `sisters-olympics-roster-${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      setError("Failed to export CSV");
+      document.body.removeChild(link);
+    } catch {
+      setError("Failed to download CSV");
     }
   };
 
-  const handleDeleteStudent = async (studentId: string) => {
-    if (!password) {
-      setError("Admin password missing. Please reauthenticate to continue.");
-      return;
-    }
-
+  const handleDeleteStudent = async (studentId: string, studentName: string) => {
     const confirmed = window.confirm(
-      "Are you sure you want to remove this member? This action cannot be undone."
+      `Are you sure you want to remove "${studentName}" from the roster? This cannot be undone.`
     );
     if (!confirmed) return;
 
     setDeletingId(studentId);
-    setError(null);
-
     try {
       const response = await fetch(
         `/api/admin/students?password=${encodeURIComponent(password)}`,
         {
           method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: studentId }),
         }
       );
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || "Failed to delete student");
+        const data = await response.json();
+        throw new Error(data.error || "Failed to remove student");
       }
 
-      const deletedStudent = data.deletedStudent as Student | undefined;
-
+      // Refresh data
       setStudents((prev) => prev.filter((s) => s._id !== studentId));
-      if (deletedStudent) {
-        setStats((prev) => {
-          if (!prev) return prev;
-          const houseKey = deletedStudent.house;
-          const updatedHouseCount = Math.max(
-            (prev.houses[houseKey] || 0) - 1,
-            0
-          );
-          return {
-            ...prev,
-            total: Math.max(prev.total - 1, 0),
-            houses: {
-              ...prev.houses,
-              [houseKey]: updatedHouseCount,
-            },
-          };
-        });
+      if (selectedStudent?._id === studentId) {
+        setSelectedStudent(null);
       }
-    } catch (err) {
-      console.error("Delete student failed:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to delete student"
-      );
+      fetchDashboardData();
+    } catch (err: any) {
+      setError(err?.message || "Failed to delete student record");
     } finally {
       setDeletingId(null);
     }
   };
 
-  // Filtered and sorted students
-  const filteredStudents = useMemo(() => {
-    let filtered = [...students];
+  const copyToClipboard = (text: string, fieldName: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
+  // Filtered & Sorted Records
+  const filteredStudents = useMemo(() => {
+    let result = [...students];
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter(
         (s) =>
           s.name.toLowerCase().includes(query) ||
           s.department.toLowerCase().includes(query) ||
           s.level.toLowerCase().includes(query) ||
-          (s.matricNumber && s.matricNumber.toLowerCase().includes(query))
+          (s.matricNumber && s.matricNumber.toLowerCase().includes(query)) ||
+          (s.email && s.email.toLowerCase().includes(query)) ||
+          (s.phoneNumber && s.phoneNumber.includes(query)) ||
+          (s.medicalConsiderations &&
+            s.medicalConsiderations.toLowerCase().includes(query))
       );
     }
 
-    // House filter
     if (filterHouse !== "all") {
-      filtered = filtered.filter((s) => s.house === filterHouse);
+      result = result.filter((s) => s.house === filterHouse);
     }
 
-    // Level filter
     if (filterLevel !== "all") {
-      filtered = filtered.filter((s) => s.level === filterLevel);
+      result = result.filter((s) => s.level === filterLevel);
     }
 
-    // Department filter
     if (filterDepartment !== "all") {
-      filtered = filtered.filter((s) => s.department === filterDepartment);
+      result = result.filter((s) => s.department === filterDepartment);
     }
 
-    // Sorting
-    filtered.sort((a, b) => {
+    result.sort((a, b) => {
       let aVal: any = a[sortField];
       let bVal: any = b[sortField];
 
@@ -248,10 +304,33 @@ export default function AdminPage() {
       }
     });
 
-    return filtered;
-  }, [students, searchQuery, filterHouse, filterLevel, filterDepartment, sortField, sortDirection]);
+    return result;
+  }, [
+    students,
+    searchQuery,
+    filterHouse,
+    filterLevel,
+    filterDepartment,
+    sortField,
+    sortDirection,
+  ]);
 
-  const handleSort = (field: SortField) => {
+  // Pagination slice
+  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage) || 1;
+  const paginatedStudents = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredStudents.slice(start, start + itemsPerPage);
+  }, [filteredStudents, currentPage]);
+
+  const uniqueLevels = useMemo(() => {
+    return Array.from(new Set(students.map((s) => s.level))).sort();
+  }, [students]);
+
+  const uniqueColleges = useMemo(() => {
+    return Array.from(new Set(students.map((s) => s.department))).sort();
+  }, [students]);
+
+  const toggleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
@@ -260,583 +339,937 @@ export default function AdminPage() {
     }
   };
 
-  // Chart data for visualization
-  const chartData = useMemo(() => {
-    if (!stats) return null;
-    const maxCount = Math.max(...Object.values(stats.houses), 1);
-    
-    return Object.entries(HOUSE_CONFIG).map(([key, config]) => ({
-      house: key as HouseType,
-      name: config.name,
-      count: stats.houses[key as HouseType] || 0,
-      percentage: stats.total > 0 ? ((stats.houses[key as HouseType] || 0) / stats.total) * 100 : 0,
-      barWidth: stats.total > 0 ? ((stats.houses[key as HouseType] || 0) / maxCount) * 100 : 0,
-      color: config.hex,
-      gradient: config.gradient,
-      emoji: config.emoji,
-    }));
-  }, [stats]);
+  // Reset pagination on filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterHouse, filterLevel, filterDepartment]);
 
-  // Get unique levels and departments
-  const uniqueLevels = useMemo(() => {
-    return Array.from(new Set(students.map((s) => s.level))).sort();
-  }, [students]);
-
-  const uniqueDepartments = useMemo(() => {
-    return Array.from(new Set(students.map((s) => s.department))).sort();
-  }, [students]);
-
+  // LOGIN SCREEN
   if (!authenticated) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
-        <div className="max-w-md w-full bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-white/20">
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-8 text-center">
-            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
+      <main className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-[#2E1065] via-[#1E1B4B] to-[#0F0A1E] text-white">
+        <div className="max-w-md w-full bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border-2 border-[#D4AF37] text-gray-900 p-8 sm:p-10 relative">
+          <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#D4AF37] via-[#F5D061] to-[#D4AF37]"></div>
+
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 rounded-2xl bg-purple-100 border border-purple-200 text-[#581C87] flex items-center justify-center mx-auto mb-4 shadow-md">
+              <ShieldCheck className="w-8 h-8 text-[#D4AF37]" />
             </div>
-            <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
-            <p className="text-blue-100 text-sm">Enter admin password to continue</p>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-purple-100 text-[#581C87] border border-purple-200 mb-2">
+              <Crown className="w-3.5 h-3.5 text-[#D4AF37]" />
+              The Sisters Olympics
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#2E1065] tracking-tight">
+              Officials Portal
+            </h1>
+            <p className="text-gray-500 text-sm mt-1">
+              Authorized committee access only
+            </p>
           </div>
-          <div className="p-8">
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div>
-                <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Admin Password
-                </label>
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div>
+              <label
+                htmlFor="adminPassword"
+                className="block text-xs font-bold uppercase tracking-wider text-[#2E1065] mb-2"
+              >
+                Access Key
+              </label>
+              <div className="relative">
                 <input
                   type="password"
-                  id="password"
+                  id="adminPassword"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-gray-400"
-                  placeholder="Enter admin password"
+                  placeholder="Enter authorized key"
+                  className="w-full px-4 py-3.5 bg-white border-2 border-purple-200 rounded-xl focus:ring-2 focus:ring-[#D4AF37] focus:border-[#7E22CE] outline-none transition-all text-gray-900 placeholder:text-gray-400 font-medium text-base shadow-sm"
                 />
+                <Lock className="w-5 h-5 text-gray-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
-              {error && (
-                <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
-                  <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-sm">{error}</span>
-                </div>
+            </div>
+
+            {error && (
+              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-semibold flex items-center gap-2">
+                <span>{error}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading || authChecking}
+              className="w-full py-4 px-6 rounded-xl font-bold text-white bg-gradient-to-r from-[#7E22CE] to-[#4C1D95] hover:opacity-95 transition-all shadow-lg hover:shadow-xl border border-[#D4AF37] flex items-center justify-center gap-2 text-base disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Verifying Authorization...</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-5 h-5 text-[#F5D061]" />
+                  <span>Enter Dashboard</span>
+                </>
               )}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 rounded-lg font-bold text-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-              >
-                {loading ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Verifying...
-                  </div>
-                ) : (
-                  "Login to Dashboard"
-                )}
-              </button>
-            </form>
+            </button>
+          </form>
+
+          <div className="mt-8 text-center border-t border-gray-100 pt-4">
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="text-xs text-gray-500 hover:text-purple-700 font-medium transition-colors"
+            >
+              ← Back to Main Registration
+            </button>
           </div>
         </div>
       </main>
     );
   }
 
+  // MAIN DASHBOARD
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
-      {/* Mobile Sidebar Overlay */}
-      {mobileSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setMobileSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside className={`fixed left-0 top-0 h-full w-80 bg-white/95 backdrop-blur-sm shadow-2xl z-50 transform transition-transform lg:translate-x-0 ${
-        mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-      }`}>
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
+    <div className="min-h-screen bg-[#F8FAFC] text-gray-900 flex flex-col">
+      {/* Top Royal Navbar */}
+      <header className="sticky top-0 z-30 bg-[#2E1065] text-white shadow-xl border-b-2 border-[#D4AF37]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 sm:h-20">
+            {/* Title & Brand */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#581C87] border border-[#D4AF37] flex items-center justify-center shadow-md">
+                <Crown className="w-5 h-5 text-[#F5D061]" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-base sm:text-xl font-black tracking-tight text-white">
+                    The Sisters Olympics
+                  </h1>
+                  <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#D4AF37]/20 text-[#F5D061] border border-[#D4AF37]/40">
+                    Lead Officials
+                  </span>
+                </div>
+                <p className="text-xs text-purple-200">
+                  Event Roster & Tribe Allocations
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-800">Admin Dashboard</h2>
-              <p className="text-sm text-gray-600">Game of Thrones</p>
+
+            {/* Quick Actions */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                onClick={() => fetchDashboardData()}
+                disabled={loadingData}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-purple-100 text-xs sm:text-sm font-semibold transition-all border border-white/15"
+                title="Refresh latest registrations"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 ${loadingData ? "animate-spin" : ""}`}
+                />
+                <span className="hidden md:inline">Sync Data</span>
+              </button>
+
+              <button
+                onClick={handleExportCSV}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#D4AF37] hover:bg-[#F5D061] text-[#2E1065] text-xs sm:text-sm font-extrabold transition-all shadow-md"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export CSV</span>
+              </button>
+
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-lg bg-red-950/40 hover:bg-red-900/60 text-red-200 text-xs font-semibold transition-all border border-red-500/30"
+                title="Sign out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
-        
-        <nav className="p-4 space-y-2">
-          <button
-            onClick={() => { setActiveTab("overview"); setMobileSidebarOpen(false); }}
-            className={`w-full text-left px-4 py-4 rounded-xl transition-all flex items-center gap-4 ${
-              activeTab === "overview"
-                ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"
-            }`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            <span className="font-semibold">Overview</span>
-          </button>
-          
-          <button
-            onClick={() => { setActiveTab("students"); setMobileSidebarOpen(false); }}
-            className={`w-full text-left px-4 py-4 rounded-xl transition-all flex items-center gap-4 ${
-              activeTab === "students"
-                ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
-                : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"
-            }`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
-            <span className="font-semibold">Students</span>
-          </button>
-          
-          <button
-            onClick={handleExport}
-            className="w-full text-left px-4 py-4 rounded-xl transition-all flex items-center gap-4 text-green-600 hover:bg-green-50 border-2 border-green-200 hover:border-green-300"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <span className="font-semibold">Export CSV</span>
-          </button>
-        </nav>
-        
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
-          <button
-            onClick={() => router.push("/")}
-            className="w-full text-left px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-100 transition-all flex items-center gap-3"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Home
-          </button>
-        </div>
-      </aside>
 
-      {/* Mobile Header */}
-      <header className="lg:hidden bg-white/95 backdrop-blur-sm shadow-lg sticky top-0 z-40">
-        <div className="p-4 flex items-center justify-between">
-          <button
-            onClick={() => setMobileSidebarOpen(true)}
-            className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          
-          <div className="text-center">
-            <h2 className="text-lg font-bold text-gray-800">Admin Dashboard</h2>
-            <p className="text-xs text-gray-600">Game of Thrones</p>
+        {/* Tab Subheader */}
+        <div className="bg-[#1E1B4B] border-t border-purple-900/60 px-4 sm:px-8">
+          <div className="max-w-7xl mx-auto flex items-center gap-6">
+            <button
+              onClick={() => setActiveTab("overview")}
+              className={`py-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
+                activeTab === "overview"
+                  ? "border-[#D4AF37] text-[#F5D061]"
+                  : "border-transparent text-purple-300 hover:text-white"
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Tribal Balance & Metrics</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("students")}
+              className={`py-3 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
+                activeTab === "students"
+                  ? "border-[#D4AF37] text-[#F5D061]"
+                  : "border-transparent text-purple-300 hover:text-white"
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>Registered Sisters ({students.length})</span>
+            </button>
           </div>
-          
-          <div className="w-10"></div> {/* Spacer for balance */}
-        </div>
-        
-        <div className="flex border-t border-gray-200 bg-white">
-          <button
-            onClick={() => setActiveTab("overview")}
-            className={`flex-1 py-4 text-center font-semibold transition-colors ${
-              activeTab === "overview"
-                ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
-                : "text-gray-600 hover:text-gray-800"
-            }`}
-          >
-            Overview
-          </button>
-          <button
-            onClick={() => setActiveTab("students")}
-            className={`flex-1 py-4 text-center font-semibold transition-colors ${
-              activeTab === "students"
-                ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
-                : "text-gray-600 hover:text-gray-800"
-            }`}
-          >
-            Students
-          </button>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="lg:ml-80 p-4 lg:p-6 pt-20 lg:pt-6 min-h-screen">
-        <div className="max-w-7xl mx-auto">
-          {loadingData ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-              <p className="text-gray-600 text-lg">Loading dashboard data...</p>
+      {/* Main Body */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+        {/* Error notification banner if any */}
+        {error && (
+          <div className="bg-red-50 border-2 border-red-300 text-red-800 p-4 rounded-2xl flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-2 font-semibold text-sm">
+              <span>{error}</span>
             </div>
-          ) : (
-            <>
-              {activeTab === "overview" && stats && (
-                <div className="space-y-6">
-                  {/* Stats Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-                    <div className="bg-gradient-to-br from-[#7E22CE] to-[#4C1D95] text-white p-6 rounded-2xl shadow-lg border-2 border-[#D4AF37]">
-                      <div className="text-3xl lg:text-4xl font-bold mb-2">{stats.total}</div>
-                      <div className="text-sm lg:text-base font-semibold text-purple-200">Total Registered</div>
-                    </div>
-                    {PRIMARY_HOUSES.map((key) => {
-                      const config = HOUSE_CONFIG[key];
-                      return (
-                        <div
-                          key={key}
-                          className={`bg-gradient-to-br ${config.gradient} text-white p-4 lg:p-6 rounded-2xl shadow-lg border-2 border-white/30`}
-                        >
-                          <div className="flex items-center gap-3 mb-2">
-                            {config.image ? (
-                              <img 
-                                src={config.image} 
-                                alt={config.name} 
-                                className="w-8 h-8 lg:w-10 lg:h-10 rounded-full border-2 border-white/50 shadow-sm bg-white object-cover" 
-                              />
-                            ) : (
-                              <span className="w-8 h-8 lg:w-10 lg:h-10 rounded-full border-2 border-white/50 shadow-sm flex items-center justify-center bg-white/20 backdrop-blur-sm">
-                                <TribeLucideIcon tribe={key} className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
-                              </span>
-                            )}
-                            <div className="text-lg lg:text-2xl font-bold">
-                              {stats.houses[key as HouseType] || 0}
-                            </div>
-                          </div>
-                          <div className="text-xs lg:text-sm font-semibold text-white/90 truncate">
-                            {config.name}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-500 hover:text-red-700"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        )}
 
-                  {/* Charts */}
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    {/* Bar Chart */}
-                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-6 border border-white/20">
-                      <h3 className="text-xl font-bold text-gray-800 mb-6">Distribution by House</h3>
-                      <div className="space-y-4">
-                        {chartData?.map((item) => (
-                          <div key={item.house}>
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-3">
-                                <span className="text-xl">{item.emoji}</span>
-                                <span className="font-semibold text-gray-700 text-sm lg:text-base">{item.name}</span>
-                              </div>
-                              <span className="font-bold text-gray-800 text-sm lg:text-base">{item.count}</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-4 lg:h-6 overflow-hidden">
-                              <div
-                                className="h-full rounded-full transition-all duration-500 flex items-center justify-end pr-2"
-                                style={{
-                                  width: `${item.barWidth}%`,
-                                  background: `linear-gradient(to right, ${item.color}, ${item.color}dd)`,
-                                }}
-                              >
-                                {item.barWidth > 20 && (
-                                  <span className="text-xs font-semibold text-white">
-                                    {item.percentage.toFixed(1)}%
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Pie Chart */}
-                    <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-6 border border-white/20">
-                      <h3 className="text-xl font-bold text-gray-800 mb-6">House Allocation</h3>
-                      <div className="flex flex-col lg:flex-row items-center gap-6">
-                        <div className="relative w-48 h-48 lg:w-56 lg:h-56 flex-shrink-0">
-                          <svg viewBox="0 0 200 200" className="w-full h-full">
-                            {chartData && (() => {
-                              let currentAngle = -90;
-                              const total = chartData.reduce((sum, item) => sum + item.count, 0);
-                              
-                              return chartData.map((item, index) => {
-                                const percentage = total > 0 ? (item.count / total) * 100 : 0;
-                                const angle = (percentage / 100) * 360;
-                                const startAngle = currentAngle;
-                                const endAngle = currentAngle + angle;
-                                
-                                const x1 = 100 + 80 * Math.cos((startAngle * Math.PI) / 180);
-                                const y1 = 100 + 80 * Math.sin((startAngle * Math.PI) / 180);
-                                const x2 = 100 + 80 * Math.cos((endAngle * Math.PI) / 180);
-                                const y2 = 100 + 80 * Math.sin((endAngle * Math.PI) / 180);
-                                
-                                const largeArc = angle > 180 ? 1 : 0;
-                                
-                                const pathData = [
-                                  `M 100 100`,
-                                  `L ${x1} ${y1}`,
-                                  `A 80 80 0 ${largeArc} 1 ${x2} ${y2}`,
-                                  `Z`,
-                                ].join(" ");
-                                
-                                currentAngle += angle;
-                                
-                                return (
-                                  <path
-                                    key={item.house}
-                                    d={pathData}
-                                    fill={item.color}
-                                    stroke="white"
-                                    strokeWidth="3"
-                                  />
-                                );
-                              });
-                            })()}
-                          </svg>
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="text-center">
-                              <div className="text-2xl lg:text-3xl font-bold text-gray-800">{stats.total}</div>
-                              <div className="text-sm text-gray-600">Total</div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
-                          {chartData?.map((item) => (
-                            <div key={item.house} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 border border-gray-200">
-                              <div
-                                className="w-4 h-4 rounded flex-shrink-0"
-                                style={{ backgroundColor: item.color }}
-                              />
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-semibold text-gray-800 truncate">{item.name}</div>
-                                <div className="text-xs text-gray-600">{item.count} students</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+        {/* ===================== TAB 1: OVERVIEW ===================== */}
+        {activeTab === "overview" && (
+          <div className="space-y-6">
+            {/* Top Stat Summary Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+              {/* Total Card */}
+              <div className="bg-white rounded-2xl p-5 shadow-sm border-2 border-purple-200 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    Total Registrations
+                  </p>
+                  <p className="text-3xl sm:text-4xl font-black text-[#2E1065] mt-1">
+                    {stats?.total ?? students.length}
+                  </p>
+                  <p className="text-xs text-purple-700 font-semibold mt-1">
+                    Across 5 Royal Tribes
+                  </p>
                 </div>
-              )}
+                <div className="w-14 h-14 rounded-2xl bg-purple-100 text-[#581C87] flex items-center justify-center border border-purple-200 shadow-sm">
+                  <Users className="w-7 h-7" />
+                </div>
+              </div>
 
-              {activeTab === "students" && (
-                <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-white/20">
-                  {/* Filters and Search */}
-                  <div className="p-4 lg:p-6 border-b border-gray-200 bg-gray-50/50">
-                    <div className="space-y-4">
-                      {/* Search */}
-                      <div className="relative">
-                        <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <input
-                          type="text"
-                          placeholder="Search by name, level, or college..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900 placeholder:text-gray-500"
+              {/* Event Date Card */}
+              <div className="bg-white rounded-2xl p-5 shadow-sm border-2 border-purple-100 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    Event Date
+                  </p>
+                  <p className="text-base sm:text-lg font-bold text-gray-900 mt-1">
+                    Sat, 17th Oct, 2026
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Main School Field</p>
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-amber-50 text-[#B8860B] flex items-center justify-center border border-amber-200">
+                  <Calendar className="w-6 h-6" />
+                </div>
+              </div>
+
+              {/* Level Breakdown Quick Pill */}
+              <div className="bg-white rounded-2xl p-5 shadow-sm border-2 border-purple-100 sm:col-span-2 flex flex-col justify-between">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                  Academic Level Distribution
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {["100", "200", "300", "400", "500"].map((lvl) => {
+                    const count = students.filter(
+                      (s) => s.level === lvl
+                    ).length;
+                    return (
+                      <div
+                        key={lvl}
+                        className="flex-1 min-w-[70px] bg-slate-50 border border-slate-200 rounded-xl p-2 text-center"
+                      >
+                        <span className="block text-xs font-semibold text-gray-500">
+                          {lvl}L
+                        </span>
+                        <span className="block text-lg font-bold text-[#2E1065]">
+                          {count}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Live Tribe Balance & Allocation Cards */}
+            <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border-2 border-purple-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 mb-6 border-b border-gray-100 gap-2">
+                <div>
+                  <h3 className="text-lg sm:text-xl font-extrabold text-[#2E1065] flex items-center gap-2">
+                    <Trophy className="w-5 h-5 text-[#D4AF37]" />
+                    <span>Live Tribe Balance & Member Roster</span>
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    The randomizer automatically balances participant counts
+                    across each of the five tribes.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveTab("students")}
+                  className="text-xs font-bold text-[#7E22CE] hover:text-[#581C87] flex items-center gap-1 self-start sm:self-auto"
+                >
+                  <span>View Member Details</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                {PRIMARY_HOUSES.map((key) => {
+                  const config = HOUSE_CONFIG[key];
+                  const count =
+                    stats?.houses[key as HouseType] ??
+                    students.filter((s) => s.house === key).length;
+                  const total = stats?.total || students.length || 1;
+                  const percentage = Math.round((count / total) * 100);
+
+                  return (
+                    <div
+                      key={key}
+                      className="rounded-2xl p-4 sm:p-5 border-2 transition-all hover:shadow-md flex flex-col justify-between"
+                      style={{
+                        borderColor: `${config.hex}40`,
+                        backgroundColor: `${config.hex}08`,
+                      }}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center border shadow-sm"
+                          style={{
+                            backgroundColor: `${config.hex}20`,
+                            borderColor: config.hex,
+                            color: config.hex,
+                          }}
+                        >
+                          <TribeLucideIcon tribe={key} className="w-5 h-5" />
+                        </div>
+                        <span
+                          className="text-xs font-bold px-2 py-0.5 rounded-full uppercase"
+                          style={{
+                            backgroundColor: `${config.hex}20`,
+                            color: config.hex,
+                          }}
+                        >
+                          {config.colorName}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="font-extrabold text-base text-gray-900">
+                          {config.name}
+                        </h4>
+                        <div className="flex items-baseline gap-2 mt-1">
+                          <span className="text-2xl sm:text-3xl font-black text-gray-900">
+                            {count}
+                          </span>
+                          <span className="text-xs font-semibold text-gray-500">
+                            ({percentage}%)
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="w-full bg-gray-200 h-2 rounded-full mt-3 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${percentage}%`,
+                            backgroundColor: config.hex,
+                          }}
                         />
                       </div>
-                      
-                      {/* Filters Row */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <select
-                          value={filterHouse}
-                          onChange={(e) => setFilterHouse(e.target.value as HouseType | "all")}
-                          className="px-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
-                        >
-                          <option value="all">All Houses</option>
-                          {Object.entries(HOUSE_CONFIG).map(([key, config]) => (
-                            <option key={key} value={key}>
-                              {config.emoji} {config.name}
-                            </option>
-                          ))}
-                        </select>
-                        
-                        <select
-                          value={filterLevel}
-                          onChange={(e) => setFilterLevel(e.target.value)}
-                          className="px-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
-                        >
-                          <option value="all">All Levels</option>
-                          {uniqueLevels.map((level) => (
-                            <option key={level} value={level}>
-                              Level {level}
-                            </option>
-                          ))}
-                        </select>
-                        
-                        <select
-                          value={filterDepartment}
-                          onChange={(e) => setFilterDepartment(e.target.value)}
-                          className="px-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-900"
-                        >
-                          <option value="all">All Colleges</option>
-                          {uniqueDepartments.map((dept) => (
-                            <option key={dept} value={dept}>
-                              {dept}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      
-                      {/* Results and Export */}
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <p className="text-sm text-gray-600">
-                          Showing <span className="font-semibold text-gray-800">{filteredStudents.length}</span> of <span className="font-semibold text-gray-800">{students.length}</span> students
-                        </p>
-                        <button
-                          onClick={handleExport}
-                          className="bg-green-600 text-white px-6 py-3 rounded-xl hover:bg-green-700 font-semibold transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-2 whitespace-nowrap"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          Export CSV
-                        </button>
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Table */}
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="bg-gradient-to-r from-gray-100 to-gray-200">
-                          {[
-                            { field: "name" as SortField, label: "Name" },
-                            { field: "matricNumber" as SortField, label: "Matric No." },
-                            { field: "level" as SortField, label: "Level" },
-                            { field: "department" as SortField, label: "College" },
-                            { field: "house" as SortField, label: "House" },
-                            { field: "createdAt" as SortField, label: "Registered" },
-                          ].map(({ field, label }) => (
-                            <th
-                              key={field}
-                              className="px-4 py-4 text-left text-sm font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-300 transition-colors whitespace-nowrap"
-                              onClick={() => handleSort(field)}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs lg:text-sm">{label}</span>
-                                {sortField === field && (
-                                  <svg
-                                    className={`w-4 h-4 ${sortDirection === "asc" ? "" : "transform rotate-180"}`}
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                                  </svg>
-                                )}
-                              </div>
-                            </th>
-                          ))}
-                          <th className="px-4 py-4 text-right text-sm font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredStudents.length === 0 ? (
-                          <tr>
-                            <td colSpan={7} className="px-4 py-12 text-center text-gray-500 text-base">
-                              <div className="flex flex-col items-center gap-3">
-                                <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <div>
-                                  <p className="font-semibold text-gray-600">No students found</p>
-                                  <p className="text-sm text-gray-500">Try adjusting your search or filters</p>
-                                </div>
+                      <button
+                        onClick={() => {
+                          setFilterHouse(key);
+                          setActiveTab("students");
+                        }}
+                        className="mt-4 text-xs font-bold text-gray-600 hover:text-gray-900 text-left flex items-center gap-1 transition-colors"
+                      >
+                        <span>Filter roster</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Colleges Distribution Breakdown */}
+            <div className="bg-white rounded-3xl p-6 shadow-sm border-2 border-purple-100">
+              <h3 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <Landmark className="w-4 h-4 text-[#7E22CE]" />
+                <span>Colleges Representation</span>
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                {[
+                  "COAES",
+                  "COMSS",
+                  "COCS",
+                  "COHES",
+                  "COLAW",
+                  "COEVS",
+                  "COLBS",
+                ].map((col) => {
+                  const count = students.filter(
+                    (s) => s.department === col
+                  ).length;
+                  return (
+                    <button
+                      key={col}
+                      onClick={() => {
+                        setFilterDepartment(col);
+                        setActiveTab("students");
+                      }}
+                      className="p-3 rounded-xl bg-purple-50/60 border border-purple-200 text-left hover:border-purple-400 transition-all"
+                    >
+                      <span className="block text-xs font-bold text-[#581C87]">
+                        {col}
+                      </span>
+                      <span className="block text-xl font-black text-gray-900 mt-1">
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ===================== TAB 2: STUDENTS DIRECTORY ===================== */}
+        {activeTab === "students" && (
+          <div className="space-y-4">
+            {/* Filter Bar */}
+            <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border-2 border-purple-100 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* Search Input */}
+                <div className="relative sm:col-span-2 lg:col-span-1">
+                  <label
+                    htmlFor="searchField"
+                    className="block text-xs font-bold text-gray-700 uppercase mb-1"
+                  >
+                    Quick Search
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      id="searchField"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search name, matric, phone..."
+                      className="w-full pl-9 pr-4 py-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#7E22CE] focus:border-[#7E22CE] outline-none text-sm text-gray-900 placeholder:text-gray-400 font-medium"
+                    />
+                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery("")}
+                        className="text-xs text-gray-400 hover:text-gray-600 absolute right-3 top-1/2 -translate-y-1/2"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Filter Tribe */}
+                <div>
+                  <label
+                    htmlFor="filterTribeSelect"
+                    className="block text-xs font-bold text-gray-700 uppercase mb-1"
+                  >
+                    Tribe
+                  </label>
+                  <select
+                    id="filterTribeSelect"
+                    value={filterHouse}
+                    onChange={(e) =>
+                      setFilterHouse(e.target.value as HouseType | "all")
+                    }
+                    className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#7E22CE] outline-none text-sm text-gray-900 font-medium cursor-pointer"
+                  >
+                    <option value="all">All Tribes</option>
+                    {PRIMARY_HOUSES.map((key) => (
+                      <option key={key} value={key}>
+                        {HOUSE_CONFIG[key].name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Filter Level */}
+                <div>
+                  <label
+                    htmlFor="filterLevelSelect"
+                    className="block text-xs font-bold text-gray-700 uppercase mb-1"
+                  >
+                    Level
+                  </label>
+                  <select
+                    id="filterLevelSelect"
+                    value={filterLevel}
+                    onChange={(e) => setFilterLevel(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#7E22CE] outline-none text-sm text-gray-900 font-medium cursor-pointer"
+                  >
+                    <option value="all">All Levels</option>
+                    {uniqueLevels.map((lvl) => (
+                      <option key={lvl} value={lvl}>
+                        Level {lvl}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Filter College */}
+                <div>
+                  <label
+                    htmlFor="filterCollegeSelect"
+                    className="block text-xs font-bold text-gray-700 uppercase mb-1"
+                  >
+                    College
+                  </label>
+                  <select
+                    id="filterCollegeSelect"
+                    value={filterDepartment}
+                    onChange={(e) => setFilterDepartment(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#7E22CE] outline-none text-sm text-gray-900 font-medium cursor-pointer"
+                  >
+                    <option value="all">All Colleges</option>
+                    {uniqueColleges.map((col) => (
+                      <option key={col} value={col}>
+                        {col}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Filter tags & Reset */}
+              {(filterHouse !== "all" ||
+                filterLevel !== "all" ||
+                filterDepartment !== "all" ||
+                searchQuery !== "") && (
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs">
+                  <span className="text-gray-500 font-medium">
+                    Showing <strong>{filteredStudents.length}</strong> of{" "}
+                    {students.length} sisters
+                  </span>
+                  <button
+                    onClick={() => {
+                      setSearchQuery("");
+                      setFilterHouse("all");
+                      setFilterLevel("all");
+                      setFilterDepartment("all");
+                    }}
+                    className="text-[#7E22CE] hover:underline font-bold"
+                  >
+                    Reset all filters
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Students Table */}
+            <div className="bg-white rounded-3xl shadow-sm border-2 border-purple-100 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-purple-50/70 border-b border-purple-200 text-xs font-bold text-[#2E1065] uppercase tracking-wider">
+                      <th
+                        className="py-3.5 px-4 cursor-pointer hover:bg-purple-100/70"
+                        onClick={() => toggleSort("name")}
+                      >
+                        Full Name{" "}
+                        {sortField === "name" &&
+                          (sortDirection === "asc" ? "↑" : "↓")}
+                      </th>
+                      <th
+                        className="py-3.5 px-4 cursor-pointer hover:bg-purple-100/70"
+                        onClick={() => toggleSort("house")}
+                      >
+                        Assigned Tribe{" "}
+                        {sortField === "house" &&
+                          (sortDirection === "asc" ? "↑" : "↓")}
+                      </th>
+                      <th
+                        className="py-3.5 px-4 cursor-pointer hover:bg-purple-100/70"
+                        onClick={() => toggleSort("department")}
+                      >
+                        College{" "}
+                        {sortField === "department" &&
+                          (sortDirection === "asc" ? "↑" : "↓")}
+                      </th>
+                      <th
+                        className="py-3.5 px-4 cursor-pointer hover:bg-purple-100/70"
+                        onClick={() => toggleSort("level")}
+                      >
+                        Level{" "}
+                        {sortField === "level" &&
+                          (sortDirection === "asc" ? "↑" : "↓")}
+                      </th>
+                      <th className="py-3.5 px-4">Matric No</th>
+                      <th className="py-3.5 px-4">Contact</th>
+                      <th className="py-3.5 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 text-sm">
+                    {paginatedStudents.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="py-12 text-center text-gray-500 font-medium"
+                        >
+                          No matching records found.
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedStudents.map((student) => {
+                        const config =
+                          HOUSE_CONFIG[student.house] || HOUSE_CONFIG.esther;
+                        return (
+                          <tr
+                            key={student._id}
+                            className="hover:bg-purple-50/40 transition-colors"
+                          >
+                            {/* Name */}
+                            <td className="py-3.5 px-4 font-bold text-gray-900">
+                              <button
+                                onClick={() => setSelectedStudent(student)}
+                                className="hover:text-[#7E22CE] text-left"
+                              >
+                                {student.name}
+                              </button>
+                            </td>
+
+                            {/* Tribe */}
+                            <td className="py-3.5 px-4">
+                              <span
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border"
+                                style={{
+                                  backgroundColor: `${config.hex}15`,
+                                  borderColor: `${config.hex}50`,
+                                  color: config.hex,
+                                }}
+                              >
+                                <TribeLucideIcon
+                                  tribe={student.house}
+                                  className="w-3.5 h-3.5"
+                                />
+                                <span>{config.name}</span>
+                              </span>
+                            </td>
+
+                            {/* College */}
+                            <td className="py-3.5 px-4 font-bold text-amber-900">
+                              <span className="px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-xs">
+                                {student.department}
+                              </span>
+                            </td>
+
+                            {/* Level */}
+                            <td className="py-3.5 px-4 font-medium text-gray-700">
+                              {student.level}L
+                            </td>
+
+                            {/* Matric */}
+                            <td className="py-3.5 px-4 font-mono text-xs text-gray-600">
+                              {student.matricNumber || (
+                                <span className="text-gray-400 italic">—</span>
+                              )}
+                            </td>
+
+                            {/* Contact */}
+                            <td className="py-3.5 px-4 text-xs text-gray-600">
+                              {student.phoneNumber ? (
+                                <a
+                                  href={`https://wa.me/${student.phoneNumber.replace(/\D/g, "")}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hover:text-green-600 font-semibold"
+                                >
+                                  {student.phoneNumber}
+                                </a>
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
+                            </td>
+
+                            {/* Action Buttons */}
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => setSelectedStudent(student)}
+                                  className="p-1.5 rounded-lg text-gray-500 hover:text-[#7E22CE] hover:bg-purple-100 transition-all"
+                                  title="View full dossier"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleDeleteStudent(
+                                      student._id,
+                                      student.name
+                                    )
+                                  }
+                                  disabled={deletingId === student._id}
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all disabled:opacity-30"
+                                  title="Remove member"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
                               </div>
                             </td>
                           </tr>
-                        ) : (
-                          filteredStudents.map((student, index) => (
-                            <tr
-                              key={student._id}
-                              className={`hover:bg-gray-50 transition-colors ${
-                                index % 2 === 0 ? "bg-white" : "bg-gray-50/50"
-                              }`}
-                            >
-                              <td className="px-4 py-4 whitespace-nowrap">
-                                <div className="text-sm font-semibold text-gray-800">{student.name}</div>
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap">
-                                <div className="text-sm text-gray-600">
-                                  {student.matricNumber || <span className="text-gray-400 italic">N/A</span>}
-                                </div>
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap">
-                                <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                  {student.level}
-                                </span>
-                              </td>
-                              <td className="px-4 py-4">
-                                <div className="text-sm text-gray-600 max-w-xs truncate">{student.department}</div>
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap">
-                                <div className="flex items-center gap-2">
-                                  {HOUSE_CONFIG[student.house]?.image ? (
-                                    <img
-                                      src={HOUSE_CONFIG[student.house].image}
-                                      alt={HOUSE_CONFIG[student.house]?.name || student.house}
-                                      className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm bg-white"
-                                    />
-                                  ) : (
-                                    <span
-                                      className="w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-sm font-bold text-white border-2 border-white"
-                                      style={{ backgroundColor: HOUSE_CONFIG[student.house]?.hex || "#9333EA" }}
-                                    >
-                                      <TribeLucideIcon tribe={student.house} className="w-4 h-4 text-white" />
-                                    </span>
-                                  )}
-                                  <span className="text-sm font-semibold text-gray-800 hidden sm:block">
-                                    {HOUSE_CONFIG[student.house]?.name || student.house}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-600">
-                                {new Date(student.createdAt).toLocaleDateString()}
-                              </td>
-                              <td className="px-4 py-4 text-right whitespace-nowrap">
-                                <button
-                                  onClick={() => handleDeleteStudent(student._id)}
-                                  disabled={deletingId === student._id}
-                                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 transition-all shadow disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  {deletingId === student._id ? (
-                                    <>
-                                      <span className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
-                                      Removing...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                      </svg>
-                                      Delete
-                                    </>
-                                  )}
-                                </button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination controls */}
+              {totalPages > 1 && (
+                <div className="p-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-600 font-medium">
+                  <span>
+                    Page {currentPage} of {totalPages} (
+                    {filteredStudents.length} records)
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 rounded-lg border border-gray-300 disabled:opacity-40 hover:bg-gray-50 font-bold"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(p + 1, totalPages))
+                      }
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 rounded-lg border border-gray-300 disabled:opacity-40 hover:bg-gray-50 font-bold"
+                    >
+                      Next
+                    </button>
                   </div>
                 </div>
               )}
-            </>
-          )}
-        </div>
+            </div>
+          </div>
+        )}
       </main>
+
+      {/* ===================== STUDENT DOSSIER MODAL ===================== */}
+      {selectedStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full border-2 border-[#D4AF37] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-5 sm:p-6 bg-gradient-to-r from-[#2E1065] to-[#4C1D95] text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-12 h-12 rounded-xl flex items-center justify-center border-2 shadow-md"
+                  style={{
+                    backgroundColor: `${HOUSE_CONFIG[selectedStudent.house]?.hex || "#D4AF37"}20`,
+                    borderColor:
+                      HOUSE_CONFIG[selectedStudent.house]?.hex || "#D4AF37",
+                  }}
+                >
+                  <TribeLucideIcon
+                    tribe={selectedStudent.house}
+                    className="w-6 h-6 text-white"
+                  />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">
+                    {selectedStudent.name}
+                  </h3>
+                  <span className="text-xs text-[#F5D061] font-semibold">
+                    {HOUSE_CONFIG[selectedStudent.house]?.name} • Level{" "}
+                    {selectedStudent.level}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedStudent(null)}
+                className="p-1 rounded-lg hover:bg-white/20 text-gray-300 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Body Details */}
+            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-sm">
+              {/* College & Matric */}
+              <div className="grid grid-cols-2 gap-3 bg-purple-50/60 p-3.5 rounded-2xl border border-purple-200/80">
+                <div>
+                  <span className="block text-xs font-bold text-gray-500 uppercase">
+                    College
+                  </span>
+                  <span className="font-extrabold text-[#581C87] text-base">
+                    {selectedStudent.department}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-xs font-bold text-gray-500 uppercase">
+                    Matric Number
+                  </span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="font-mono font-bold text-gray-800 text-sm">
+                      {selectedStudent.matricNumber || "Not provided"}
+                    </span>
+                    {selectedStudent.matricNumber && (
+                      <button
+                        onClick={() =>
+                          copyToClipboard(
+                            selectedStudent.matricNumber!,
+                            "matric"
+                          )
+                        }
+                        className="text-gray-400 hover:text-purple-700"
+                        title="Copy matric"
+                      >
+                        {copiedField === "matric" ? (
+                          <Check className="w-3.5 h-3.5 text-green-600" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Contacts */}
+              <div className="space-y-2">
+                <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Contact Information
+                </span>
+                <div className="space-y-1.5">
+                  {selectedStudent.email && (
+                    <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-gray-200">
+                      <span className="text-gray-700 font-medium text-xs sm:text-sm">
+                        {selectedStudent.email}
+                      </span>
+                      <a
+                        href={`mailto:${selectedStudent.email}`}
+                        className="text-xs font-bold text-purple-700 hover:underline flex items-center gap-1"
+                      >
+                        <Mail className="w-3.5 h-3.5" /> Email
+                      </a>
+                    </div>
+                  )}
+
+                  {selectedStudent.phoneNumber && (
+                    <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-gray-200">
+                      <span className="text-gray-700 font-medium text-xs sm:text-sm font-mono">
+                        {selectedStudent.phoneNumber}
+                      </span>
+                      <a
+                        href={`https://wa.me/${selectedStudent.phoneNumber.replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-bold text-green-700 hover:underline flex items-center gap-1"
+                      >
+                        <Phone className="w-3.5 h-3.5" /> WhatsApp
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Sports Events Selected */}
+              <div>
+                <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                  Interested Sports & Games
+                </span>
+                {selectedStudent.sportsEvents &&
+                selectedStudent.sportsEvents.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedStudent.sportsEvents.map((act) => (
+                      <span
+                        key={act}
+                        className="px-2.5 py-1 rounded-lg bg-purple-100 text-[#581C87] text-xs font-bold border border-purple-200"
+                      >
+                        {act}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 italic">
+                    None selected during registration.
+                  </p>
+                )}
+              </div>
+
+              {/* Medical Considerations */}
+              {selectedStudent.medicalConsiderations && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                  <span className="block text-xs font-bold text-amber-900 uppercase flex items-center gap-1.5 mb-1">
+                    <HeartPulse className="w-3.5 h-3.5 text-amber-700" />
+                    Medical Considerations
+                  </span>
+                  <p className="text-xs text-amber-950 font-medium">
+                    {selectedStudent.medicalConsiderations}
+                  </p>
+                </div>
+              )}
+
+              {/* Suggestions / Expectations */}
+              {selectedStudent.suggestions && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                  <span className="block text-xs font-bold text-blue-900 uppercase flex items-center gap-1.5 mb-1">
+                    <Lightbulb className="w-3.5 h-3.5 text-blue-700" />
+                    Suggestions / Expectations
+                  </span>
+                  <p className="text-xs text-blue-950 font-medium">
+                    &ldquo;{selectedStudent.suggestions}&rdquo;
+                  </p>
+                </div>
+              )}
+
+              {/* Timestamp */}
+              <div className="pt-2 text-right text-xs text-gray-400">
+                Registered on{" "}
+                {new Date(selectedStudent.createdAt).toLocaleString()}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() =>
+                  handleDeleteStudent(
+                    selectedStudent._id,
+                    selectedStudent.name
+                  )
+                }
+                className="text-xs font-bold text-red-600 hover:text-red-800 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Remove Member</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedStudent(null)}
+                className="px-5 py-2 rounded-xl bg-gray-800 text-white text-xs font-bold hover:bg-gray-900 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

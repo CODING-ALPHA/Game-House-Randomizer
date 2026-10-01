@@ -94,32 +94,6 @@ const config: Config = {
           light: "#EC4899",
           dark: "#9D174D",
         },
-        // Legacy Game of Thrones House Colors
-        stark: {
-          DEFAULT: "#94A3B8",
-          light: "#CBD5E1",
-          dark: "#64748B",
-        },
-        baratheon: {
-          DEFAULT: "#FBBF24",
-          light: "#FCD34D",
-          dark: "#F59E0B",
-        },
-        greyjoy: {
-          DEFAULT: "#1E293B",
-          light: "#334155",
-          dark: "#0F172A",
-        },
-        lannister: {
-          DEFAULT: "#DC2626",
-          light: "#EF4444",
-          dark: "#B91C1C",
-        },
-        targaryen: {
-          DEFAULT: "#F43F5E",
-          light: "#FB7185",
-          dark: "#E11D48",
-        },
       },
     },
   },

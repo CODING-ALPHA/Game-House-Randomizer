@@ -73,47 +73,6 @@ const HOUSE_THEMES: Record<
     accentColor: "text-pink-700",
     overlayColor: "bg-pink-500/10",
   },
-  // Legacy aliases
-  stark: {
-    bgGradient: "from-slate-100 via-slate-200 to-slate-300",
-    cardBg: "bg-white/95 backdrop-blur-sm",
-    textColor: "text-slate-800",
-    borderColor: "border-slate-600/50",
-    accentColor: "text-slate-700",
-    overlayColor: "bg-white/10",
-  },
-  baratheon: {
-    bgGradient: "from-amber-100 via-amber-200 to-yellow-300",
-    cardBg: "bg-amber-50/95 backdrop-blur-sm",
-    textColor: "text-amber-900",
-    borderColor: "border-amber-700/50",
-    accentColor: "text-amber-800",
-    overlayColor: "bg-amber-500/10",
-  },
-  greyjoy: {
-    bgGradient: "from-slate-800 via-slate-900 to-black",
-    cardBg: "bg-slate-700/95 backdrop-blur-sm",
-    textColor: "text-white",
-    borderColor: "border-slate-500/50",
-    accentColor: "text-slate-200",
-    overlayColor: "bg-slate-600/20",
-  },
-  lannister: {
-    bgGradient: "from-red-700 via-red-800 to-red-900",
-    cardBg: "bg-red-600/95 backdrop-blur-sm",
-    textColor: "text-white",
-    borderColor: "border-red-400/50",
-    accentColor: "text-red-200",
-    overlayColor: "bg-red-500/20",
-  },
-  targaryen: {
-    bgGradient: "from-rose-600 via-red-700 to-rose-800",
-    cardBg: "bg-rose-600/95 backdrop-blur-sm",
-    textColor: "text-white",
-    borderColor: "border-rose-400/50",
-    accentColor: "text-rose-200",
-    overlayColor: "bg-rose-500/20",
-  },
 };
 
 export default function ResultContent() {

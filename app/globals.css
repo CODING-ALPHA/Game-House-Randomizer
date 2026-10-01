@@ -56,27 +56,7 @@
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
     letter-spacing: 0.05em;
   }
-  
-  /* House-specific theming */
-  .house-stark-theme {
-    background: linear-gradient(135deg, rgba(148, 163, 184, 0.1) 0%, rgba(100, 116, 139, 0.2) 100%);
-  }
-  
-  .house-baratheon-theme {
-    background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(245, 158, 11, 0.2) 100%);
-  }
-  
-  .house-greyjoy-theme {
-    background: linear-gradient(135deg, rgba(30, 41, 59, 0.2) 0%, rgba(15, 23, 42, 0.3) 100%);
-  }
-  
-  .house-lannister-theme {
-    background: linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(185, 28, 28, 0.2) 100%);
-  }
-  
-  .house-targaryen-theme {
-    background: linear-gradient(135deg, rgba(244, 63, 94, 0.1) 0%, rgba(225, 29, 72, 0.2) 100%);
-  }
+
   
   /* Parchment effect */
   .parchment {
